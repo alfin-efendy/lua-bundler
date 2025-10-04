@@ -1,5 +1,26 @@
 # Changelog
 
+All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
+
+## [1.2.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.1.0...v1.2.0) (2025-10-04)
+
+### 🚀 Features
+
+* Add comprehensive test suite for Lua bundler including unit, integration, and command tests ([8bc77ce](https://github.com/alfin-efendy/lua-bundler/commit/8bc77ce4f02f298daec90bf44f078b545e244d92))
+* Add pull request template and enhance test cases with improved assertions ([b455390](https://github.com/alfin-efendy/lua-bundler/commit/b45539004046ea512d54b68a52310e6b4372b69c))
+* Enhance integration tests for Lua bundler with detailed checks and success messages ([ec09442](https://github.com/alfin-efendy/lua-bundler/commit/ec094426a776f4b5bfc279e6610fd2292301bb74))
+* Enhance PR title validation and update contributing guidelines for commit message format ([32ffaa7](https://github.com/alfin-efendy/lua-bundler/commit/32ffaa70cf13af1611e360d864834a9a028c9ba7))
+* Implement automated versioning and release process with Semantic Release ([16f0050](https://github.com/alfin-efendy/lua-bundler/commit/16f0050107ae22273785a62d1d474ce87840101e))
+* Increase maximum line length limits for commit messages and bodies ([58faf37](https://github.com/alfin-efendy/lua-bundler/commit/58faf371c8db1e80f0ce7b0b744a354356ea621d))
+* Update commitlint configuration to improve PR title validation and streamline commit message checks ([2b14945](https://github.com/alfin-efendy/lua-bundler/commit/2b1494561bbcccc3422b6ff6849234e923b37bcf))
+
+### 🐛 Bug Fixes
+
+* Update CI/CD pipeline name and enhance CI wait logic with skip option ([b34eb19](https://github.com/alfin-efendy/lua-bundler/commit/b34eb19298a57e428e7dce91e30894d250512b81))
+* update permissions and token handling in semantic-release workflow ([b5e4dc8](https://github.com/alfin-efendy/lua-bundler/commit/b5e4dc8e826aa3204cc6cf1dee5dcd89d1e373ac))
+
+# Changelog
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
