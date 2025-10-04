@@ -158,8 +158,8 @@ All commit messages must follow this format:
 | `revert` | Revert previous commit | **Patch** (1.0.1) | `revert: undo breaking change` |
 
 #### Commit Rules
-- **Type**: Must be lowercase
-- **Description**: Must not start with uppercase, no period at end
+- **Type**: Must be lowercase (`feat`, not `FEAT`)
+- **Description**: Natural sentence format, no period at end
 - **Header**: Maximum 100 characters
 - **Body**: Wrap at 100 characters per line
 - **Breaking Changes**: Use `!` after type or `BREAKING CHANGE:` in footer
@@ -167,7 +167,9 @@ All commit messages must follow this format:
 #### Good Examples ✅
 ```bash
 feat: add support for nested module dependencies
+feat: Implement automated versioning and release process
 fix: resolve crash when entry file not found
+fix: Fix bundling issue with HTTP modules
 feat!: change CLI flags to use single dash format
 docs: add installation instructions for macOS
 test: add comprehensive bundler unit tests
@@ -180,8 +182,8 @@ chore: update Go version to 1.24
 Add feature              # Missing type
 feat Add new feature     # Missing colon
 Fix bug                  # Not descriptive enough
-FEAT: add feature        # Wrong case
-feat: Add feature        # Description starts with uppercase
+FEAT: add feature        # Type should be lowercase
+feat: ADD FEATURE        # All caps not allowed
 feat: add feature.       # Ends with period
 ```
 

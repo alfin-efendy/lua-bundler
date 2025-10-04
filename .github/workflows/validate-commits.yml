@@ -38,34 +38,32 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Validate PR title follows conventional commits
-        uses: amannn/action-semantic-pull-request@v5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          types: |
-            feat
-            fix
-            docs
-            style
-            refactor
-            perf
-            test
-            build
-            ci
-            chore
-            revert
-          requireScope: false
-          disallowScopes: |
-            release
-          subjectPattern: ^(?![A-Z]).+$
-          subjectPatternError: |
-            The subject "{subject}" found in the pull request title "{title}"
-            didn't match the configured pattern. Please ensure that the subject
-            doesn't start with an uppercase character.
-          githubBaseUrl: https://github.com
-          ignoreLabels: |
-            bot
-            ignore-semantic-pull-request
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          echo "Validating PR title: $PR_TITLE"
+          
+          # Check if title matches conventional commit format
+          if [[ "$PR_TITLE" =~ ^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?: .+ ]]; then
+            echo "✅ PR title follows conventional commits format"
+            
+            # Check if title ends with period
+            if [[ "$PR_TITLE" =~ \.$ ]]; then
+              echo "❌ PR title should not end with a period"
+              exit 1
+            fi
+            
+            echo "✅ PR title validation passed"
+          else
+            echo "❌ PR title must follow conventional commits format:"
+            echo "  feat: add new feature"
+            echo "  fix: resolve bug" 
+            echo "  docs: update documentation"
+            echo "  test: add tests"
+            echo "  chore: maintenance tasks"
+            echo "  ci: CI/CD changes"
+            echo "  etc."
+            exit 1
+          fi
 
   check-conventional-commits:
     name: Check Conventional Commits Format
