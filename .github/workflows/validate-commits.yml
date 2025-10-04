@@ -1,0 +1,120 @@
+name: Validate Commits
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  commitlint:
+    name: Lint Commit Messages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install commitlint
+        run: |
+          npm install --save-dev @commitlint/config-conventional @commitlint/cli
+
+      - name: Validate current commit (last commit)
+        if: github.event_name == 'push'
+        run: npx commitlint --config commitlint.config.js --from HEAD~1 --to HEAD --verbose
+
+      - name: Validate PR commits
+        if: github.event_name == 'pull_request'
+        run: npx commitlint --config commitlint.config.js --from ${{ github.event.pull_request.base.sha }} --to HEAD --verbose
+
+  validate-pr-title:
+    name: Validate PR Title
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Validate PR title follows conventional commits
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          echo "Validating PR title: $PR_TITLE"
+          
+          # Define valid types
+          VALID_TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert"
+          
+          # Check if title matches conventional commit format
+          if echo "$PR_TITLE" | grep -qE "^($VALID_TYPES)(\(.+\))?!?: .+"; then
+            echo "✅ PR title follows conventional commits format"
+            
+            # Check if title ends with period
+            if echo "$PR_TITLE" | grep -q '\.$'; then
+              echo "❌ PR title should not end with a period"
+              exit 1
+            fi
+            
+            echo "✅ PR title validation passed"
+          else
+            echo "❌ PR title must follow conventional commits format:"
+            echo "Examples:"
+            echo "  feat: add new feature"
+            echo "  fix: resolve bug" 
+            echo "  docs: update documentation"
+            echo "  test: add tests"
+            echo "  chore: maintenance tasks"
+            echo "  ci: CI/CD changes"
+            echo "  feat!: breaking change"
+            echo "  feat(scope): scoped feature"
+            echo ""
+            echo "Current title: $PR_TITLE"
+            exit 1
+          fi
+
+  preview-release:
+    name: Preview Release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install semantic-release
+        run: |
+          npm install --save-dev semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github @semantic-release/exec conventional-changelog-conventionalcommits
+
+      - name: Preview release version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## 🔍 Release Preview" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Run semantic-release in dry-run mode
+          OUTPUT=$(npx semantic-release --dry-run --no-ci 2>&1 || true)
+          
+          if echo "$OUTPUT" | grep -q "Published release"; then
+            VERSION=$(echo "$OUTPUT" | grep "Published release" | sed 's/.*Published release \(.*\) on.*/\1/')
+            echo "✅ **New version will be released:** \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Release Notes Preview:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "$OUTPUT" | sed -n '/Release note/,/^$/p' >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ **No new version will be released**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The commits in this PR do not trigger a new release." >> $GITHUB_STEP_SUMMARY
+            echo "Make sure your commits follow the [Conventional Commits](https://conventionalcommits.org/) format:" >> $GITHUB_STEP_SUMMARY
+            echo "- \`feat: add new feature\` (minor release)" >> $GITHUB_STEP_SUMMARY  
+            echo "- \`fix: resolve bug\` (patch release)" >> $GITHUB_STEP_SUMMARY
+            echo "- \`feat!: breaking change\` (major release)" >> $GITHUB_STEP_SUMMARY
+          fi

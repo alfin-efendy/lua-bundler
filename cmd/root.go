@@ -10,6 +10,10 @@ import (
 )
 
 var (
+	// Version information
+	version   = "dev"
+	buildDate = "unknown"
+	gitCommit = "unknown"
 	// Styles using Lipgloss
 	titleStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FAFAFA")).
@@ -115,6 +119,22 @@ func printSuccess(b *bundler.Bundler, outputFile string) {
 	fmt.Printf("%s %s\n",
 		successStyle.Render("📄 Output:"),
 		outputFile)
+}
+
+// SetVersionInfo sets the version information from build-time variables
+func SetVersionInfo(v, date, commit string) {
+	version = v
+	buildDate = date
+	gitCommit = commit
+
+	// Truncate commit hash for display (handle short commits)
+	commitDisplay := commit
+	if len(commit) > 8 {
+		commitDisplay = commit[:8]
+	}
+
+	// Update root command with version
+	rootCmd.Version = fmt.Sprintf("%s (built: %s, commit: %s)", version, buildDate, commitDisplay)
 }
 
 func Execute() {
