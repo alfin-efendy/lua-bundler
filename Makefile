@@ -130,7 +130,7 @@ run: build
 	@echo "$(GREEN)Running with example script...$(NC)"
 	@mkdir -p $(OUTPUT_DIR)
 	@if [ -f "$(ENTRY_FILE)" ]; then \
-		./$(BUILD_DIR)/$(BINARY_NAME) -entry $(ENTRY_FILE) -output $(OUTPUT_FILE); \
+		./$(BUILD_DIR)/$(BINARY_NAME) -e $(ENTRY_FILE) -o $(OUTPUT_FILE); \
 		echo "$(GREEN)Copying output file to clipboard...$(NC)"; \
 		if [ -f "$(OUTPUT_FILE)" ]; then \
 			if command -v xclip >/dev/null 2>&1; then \
@@ -159,7 +159,7 @@ example: build
 	@echo "$(GREEN)Running example in release mode...$(NC)"
 	@mkdir -p $(OUTPUT_DIR)
 	@if [ -f "$(ENTRY_FILE)" ]; then \
-		./$(BUILD_DIR)/$(BINARY_NAME) -entry $(ENTRY_FILE) -output $(OUTPUT_FILE) -release; \
+		./$(BUILD_DIR)/$(BINARY_NAME) -e $(ENTRY_FILE) -o $(OUTPUT_FILE) --release; \
 		echo "$(GREEN)Example bundle created: $(OUTPUT_FILE)$(NC)"; \
 	else \
 		echo "$(RED)Entry file $(ENTRY_FILE) not found!$(NC)"; \
@@ -197,7 +197,7 @@ info:
 dev-test: build
 	@echo "$(GREEN)Running development test...$(NC)"
 	@if [ -f "$(ENTRY_FILE)" ]; then \
-		./$(BUILD_DIR)/$(BINARY_NAME) -entry $(ENTRY_FILE) -output dev_test_bundle.lua; \
+		./$(BUILD_DIR)/$(BINARY_NAME) -e $(ENTRY_FILE) -o dev_test_bundle.lua; \
 		echo "$(GREEN)Development test completed!$(NC)"; \
 		rm -f dev_test_bundle.lua; \
 	else \

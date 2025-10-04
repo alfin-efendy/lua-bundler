@@ -13,8 +13,9 @@ A powerful Lua script bundler specifically designed for Roblox development. Auto
 - 🌐 **HTTP Support**: Bundles `loadstring(game:HttpGet(...))()` patterns  
 - 📁 **Complex Paths**: Handles relative paths, subdirectories, and parent directories
 - 🚀 **Release Mode**: Removes debug statements (`print`, `warn`) for production
-- 🔧 **CLI Interface**: Simple command-line interface with customizable options
-- 📋 **Clipboard Integration**: Auto-copy bundled output to clipboard
+- 🎨 **Modern CLI**: Beautiful command-line interface with Cobra and Lipgloss styling
+- � **Modular Architecture**: Clean, maintainable codebase with separated concerns
+- �📋 **Clipboard Integration**: Auto-copy bundled output to clipboard  
 - 🏗️ **Cross-platform**: Supports Linux, macOS, and Windows
 
 ## 📦 Installation
@@ -65,11 +66,27 @@ make build
 
 ```bash
 # Bundle with default settings
-lua-bundler -entry main.lua -output bundle.lua
+lua-bundler -e main.lua -o bundle.lua
 
-# Bundle in release mode (removes debug statements)
-lua-bundler -entry main.lua -output bundle.lua -release
+# Bundle in release mode (removes debug statements)  
+lua-bundler -e main.lua -o bundle.lua --release
+
+# Enable verbose output for debugging
+lua-bundler -e main.lua -o bundle.lua --verbose
+
+# Show help with beautiful CLI interface
+lua-bundler --help
 ```
+
+#### CLI Flags
+
+| Flag | Short | Description | Default |
+|------|-------|-------------|---------|
+| `--entry` | `-e` | Entry point Lua file | `main.lua` |
+| `--output` | `-o` | Output bundled file | `bundle.lua` |
+| `--release` | `-r` | Release mode: remove print and warn statements | `false` |
+| `--verbose` | `-v` | Enable verbose output | `false` |
+| `--help` | `-h` | Show help information | - |
 
 ### Using Makefile (Development)
 
