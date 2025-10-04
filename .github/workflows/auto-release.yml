@@ -17,7 +17,7 @@ jobs:
       should-release: ${{ steps.version-check.outputs.should-release }}
       new-version: ${{ steps.version-check.outputs.new-version }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
@@ -46,7 +46,7 @@ jobs:
     if: needs.check-version.outputs.should-release == 'true'
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
