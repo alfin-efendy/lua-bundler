@@ -6,21 +6,21 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMain_Integration(t *testing.T) {
 	// Build the binary first
 	binaryName := "lua-bundler-test"
-	if err := exec.Command("go", "build", "-o", binaryName, ".").Run(); err != nil {
-		t.Fatalf("Failed to build binary: %v", err)
-	}
+	err := exec.Command("go", "build", "-o", binaryName, ".").Run()
+	require.NoError(t, err, "Failed to build binary")
 	defer os.Remove(binaryName)
 
 	// Create temporary test directory
 	tempDir, err := os.MkdirTemp("", "integration-test")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
+	require.NoError(t, err, "Failed to create temp dir")
 	defer os.RemoveAll(tempDir)
 
 	// Create test files
@@ -43,13 +43,11 @@ end
 
 return helper`
 
-	if err := os.WriteFile(mainFile, []byte(mainContent), 0644); err != nil {
-		t.Fatalf("Failed to write main file: %v", err)
-	}
+	err = os.WriteFile(mainFile, []byte(mainContent), 0644)
+	require.NoError(t, err, "Failed to write main file")
 
-	if err := os.WriteFile(moduleFile, []byte(moduleContent), 0644); err != nil {
-		t.Fatalf("Failed to write module file: %v", err)
-	}
+	err = os.WriteFile(moduleFile, []byte(moduleContent), 0644)
+	require.NoError(t, err, "Failed to write module file")
 
 	tests := []struct {
 		name        string
@@ -62,76 +60,50 @@ return helper`
 			name: "help command",
 			args: []string{"--help"},
 			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "lua-bundler") {
-					t.Errorf("Help output should contain 'lua-bundler'")
-				}
-				if !strings.Contains(output, "Usage:") {
-					t.Errorf("Help output should contain 'Usage:'")
-				}
+				assert.Contains(t, output, "lua-bundler", "Help output should contain 'lua-bundler'")
+				assert.Contains(t, output, "Usage:", "Help output should contain 'Usage:'")
 			},
 		},
 		{
 			name: "basic bundling",
 			args: []string{"-e", mainFile, "-o", outputFile},
 			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "Successfully bundled") {
-					t.Errorf("Output should contain success message")
-				}
-				if !strings.Contains(output, "Modules embedded: 1") {
-					t.Errorf("Output should show 1 embedded module")
-				}
+				assert.Contains(t, output, "Successfully bundled", "Output should contain success message")
+				assert.Contains(t, output, "Modules embedded: 1", "Output should show 1 embedded module")
 			},
 			checkFile: func(t *testing.T, filePath string) {
 				content, err := os.ReadFile(filePath)
-				if err != nil {
-					t.Errorf("Failed to read output file: %v", err)
-					return
-				}
+				require.NoError(t, err, "Should be able to read output file")
 
 				bundleContent := string(content)
-				if !strings.Contains(bundleContent, "Bundled Lua Script") {
-					t.Errorf("Bundle should contain header")
-				}
-				if !strings.Contains(bundleContent, "EmbeddedModules") {
-					t.Errorf("Bundle should contain EmbeddedModules")
-				}
-				if !strings.Contains(bundleContent, "loadModule") {
-					t.Errorf("Bundle should contain loadModule function")
-				}
+				assert.Contains(t, bundleContent, "Bundled Lua Script", "Bundle should contain header")
+				assert.Contains(t, bundleContent, "EmbeddedModules", "Bundle should contain EmbeddedModules")
+				assert.Contains(t, bundleContent, "loadModule", "Bundle should contain loadModule function")
 			},
 		},
 		{
 			name: "verbose bundling",
 			args: []string{"-e", mainFile, "-o", outputFile, "--verbose"},
 			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "Verbose: Enabled") {
-					t.Errorf("Verbose mode should be indicated in output")
-				}
-				if !strings.Contains(output, "Successfully bundled") {
-					t.Errorf("Output should contain success message")
-				}
+				assert.Contains(t, output, "Verbose: Enabled", "Verbose mode should be indicated in output")
+				assert.Contains(t, output, "Successfully bundled", "Output should contain success message")
 			},
 		},
 		{
 			name: "release mode bundling",
 			args: []string{"-e", mainFile, "-o", outputFile, "--release"},
 			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "Release (debug statements removed)") {
-					t.Errorf("Release mode should be indicated in output")
-				}
+				assert.Contains(t, output, "Release (debug statements removed)", "Release mode should be indicated in output")
 			},
 			checkFile: func(t *testing.T, filePath string) {
 				content, err := os.ReadFile(filePath)
-				if err != nil {
-					t.Errorf("Failed to read output file: %v", err)
-					return
-				}
+				require.NoError(t, err, "Should be able to read output file")
 
 				bundleContent := string(content)
 				// Should have fewer print statements in release mode
-				if strings.Count(bundleContent, "print(") >= strings.Count(mainContent+moduleContent, "print(") {
-					t.Errorf("Release mode should remove some print statements")
-				}
+				originalPrintCount := strings.Count(mainContent+moduleContent, "print(")
+				bundlePrintCount := strings.Count(bundleContent, "print(")
+				assert.Less(t, bundlePrintCount, originalPrintCount, "Release mode should remove some print statements")
 			},
 		},
 		{
@@ -139,9 +111,7 @@ return helper`
 			args:        []string{"-e", "nonexistent.lua", "-o", outputFile},
 			expectError: true,
 			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "Bundling failed") {
-					t.Errorf("Should show bundling failed message")
-				}
+				assert.Contains(t, output, "Bundling failed", "Should show bundling failed message")
 			},
 		},
 	}
@@ -156,11 +126,10 @@ return helper`
 			output, err := cmd.CombinedOutput()
 
 			// Check if error expectation matches
-			if tt.expectError && err == nil {
-				t.Errorf("Expected error but command succeeded")
-			}
-			if !tt.expectError && err != nil {
-				t.Errorf("Unexpected error: %v\nOutput: %s", err, output)
+			if tt.expectError {
+				assert.Error(t, err, "Expected error but command succeeded")
+			} else {
+				assert.NoError(t, err, "Unexpected error")
 			}
 
 			// Check output if function provided
@@ -170,11 +139,8 @@ return helper`
 
 			// Check output file if function provided and file should exist
 			if tt.checkFile != nil && !tt.expectError {
-				if _, err := os.Stat(outputFile); os.IsNotExist(err) {
-					t.Errorf("Output file should exist but doesn't")
-				} else {
-					tt.checkFile(t, outputFile)
-				}
+				assert.FileExists(t, outputFile, "Output file should exist")
+				tt.checkFile(t, outputFile)
 			}
 		})
 	}

@@ -4,25 +4,19 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
+	"github.com/alfin-efendy/lua-bundler/bundler"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRootCmd(t *testing.T) {
 	// Test that the root command is properly configured
-	if rootCmd.Use != "lua-bundler" {
-		t.Errorf("rootCmd.Use = %q, want %q", rootCmd.Use, "lua-bundler")
-	}
-
-	if rootCmd.Short != "A beautiful CLI tool for bundling Lua scripts" {
-		t.Errorf("rootCmd.Short is not set correctly")
-	}
-
-	if rootCmd.Long == "" {
-		t.Errorf("rootCmd.Long should not be empty")
-	}
+	assert.Equal(t, "lua-bundler", rootCmd.Use)
+	assert.Equal(t, "A beautiful CLI tool for bundling Lua scripts", rootCmd.Short)
+	assert.NotEmpty(t, rootCmd.Long)
 }
 
 func TestRootCmd_Flags(t *testing.T) {
@@ -39,14 +33,8 @@ func TestRootCmd_Flags(t *testing.T) {
 
 	for _, flag := range flags {
 		f := rootCmd.Flags().Lookup(flag.name)
-		if f == nil {
-			t.Errorf("Flag %q not found", flag.name)
-			continue
-		}
-
-		if f.Shorthand != flag.shorthand {
-			t.Errorf("Flag %q shorthand = %q, want %q", flag.name, f.Shorthand, flag.shorthand)
-		}
+		require.NotNil(t, f, "Flag %q not found", flag.name)
+		assert.Equal(t, flag.shorthand, f.Shorthand, "Flag %q shorthand mismatch", flag.name)
 	}
 }
 
@@ -66,20 +54,13 @@ func TestRootCmd_DefaultValues(t *testing.T) {
 
 	for _, tt := range tests {
 		flag := rootCmd.Flags().Lookup(tt.flag)
-		if flag == nil {
-			t.Errorf("Flag %q not found", tt.flag)
-			continue
-		}
+		require.NotNil(t, flag, "Flag %q not found", tt.flag)
 
 		if tt.isBool {
 			defaultBool, _ := rootCmd.Flags().GetBool(tt.flag)
-			if defaultBool != tt.expectedBool {
-				t.Errorf("Flag %q default bool value = %v, want %v", tt.flag, defaultBool, tt.expectedBool)
-			}
+			assert.Equal(t, tt.expectedBool, defaultBool, "Flag %q default bool value mismatch", tt.flag)
 		} else {
-			if flag.DefValue != tt.expectedVal {
-				t.Errorf("Flag %q default value = %q, want %q", tt.flag, flag.DefValue, tt.expectedVal)
-			}
+			assert.Equal(t, tt.expectedVal, flag.DefValue, "Flag %q default value mismatch", tt.flag)
 		}
 	}
 }
@@ -99,9 +80,7 @@ func TestExecute_Help(t *testing.T) {
 	rootCmd.SetArgs([]string{"--help"})
 
 	err := rootCmd.Execute()
-	if err != nil {
-		t.Errorf("Execute() with --help failed: %v", err)
-	}
+	assert.NoError(t, err, "Execute() with --help should not fail")
 
 	output := buf.String()
 
@@ -114,18 +93,14 @@ func TestExecute_Help(t *testing.T) {
 	}
 
 	for _, section := range expectedSections {
-		if !strings.Contains(output, section) {
-			t.Errorf("Help output missing section: %q", section)
-		}
+		assert.Contains(t, output, section, "Help output missing section: %q", section)
 	}
 }
 
 func TestRootCmd_WithValidFile(t *testing.T) {
 	// Create temporary test files
 	tempDir, err := os.MkdirTemp("", "cmd-test")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
+	require.NoError(t, err, "Failed to create temp dir")
 	defer os.RemoveAll(tempDir)
 
 	// Create a simple test file
@@ -134,9 +109,8 @@ func TestRootCmd_WithValidFile(t *testing.T) {
 print("Hello World")
 `
 
-	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
-	}
+	err = os.WriteFile(testFile, []byte(testContent), 0644)
+	require.NoError(t, err, "Failed to write test file")
 
 	outputFile := filepath.Join(tempDir, "output.lua")
 
@@ -164,55 +138,29 @@ print("Hello World")
 
 	// Execute command
 	err = testCmd.Execute()
-	if err != nil {
-		t.Errorf("Execute() with valid file failed: %v", err)
-	}
+	assert.NoError(t, err, "Execute() with valid file should not fail")
 
 	// Check that output file was created
-	if _, err := os.Stat(outputFile); os.IsNotExist(err) {
-		t.Errorf("Output file was not created")
-	}
+	assert.FileExists(t, outputFile, "Output file should be created")
 
 	// Check output file content
 	content, err := os.ReadFile(outputFile)
-	if err != nil {
-		t.Errorf("Failed to read output file: %v", err)
-	}
-
-	if !strings.Contains(string(content), "Bundled Lua Script") {
-		t.Errorf("Output file should contain bundled script header")
-	}
+	require.NoError(t, err, "Should be able to read output file")
+	assert.Contains(t, string(content), "Bundled Lua Script", "Output file should contain bundled script header")
 }
 
 func TestRootCmd_NonexistentFile(t *testing.T) {
-	// Create a new command for testing
-	testCmd := &cobra.Command{
-		Use: "test-bundler",
-		Run: rootCmd.Run,
-	}
+	// This test verifies that the bundler package properly handles nonexistent files
+	// We test the underlying bundler functionality directly since the CLI calls os.Exit
 
-	testCmd.Flags().StringP("entry", "e", "main.lua", "Entry point Lua file")
-	testCmd.Flags().StringP("output", "o", "bundle.lua", "Output bundled file")
-	testCmd.Flags().BoolP("release", "r", false, "Release mode")
-	testCmd.Flags().BoolP("verbose", "v", false, "Enable verbose output")
+	// Test the bundler directly with a nonexistent file
+	b, err := bundler.NewBundler("nonexistent.lua", false)
+	require.NoError(t, err, "NewBundler should not fail for nonexistent file at creation")
 
-	// Capture output
-	var buf bytes.Buffer
-	testCmd.SetOut(&buf)
-	testCmd.SetErr(&buf)
-
-	// Set command arguments with nonexistent file
-	testCmd.SetArgs([]string{
-		"-e", "nonexistent.lua",
-		"-o", "output.lua",
-	})
-
-	// Execute command - this should exit with error, but we can't easily test os.Exit()
-	// So we'll just verify the command tries to execute
-	err := testCmd.Execute()
-	// The command will call os.Exit(1) on error, so we can't check the return value
-	// But we can check if it started processing
-	_ = err
+	// The Bundle() method should return an error
+	_, err = b.Bundle(false)
+	assert.Error(t, err, "Bundle() should return error for nonexistent file")
+	assert.Contains(t, err.Error(), "failed to read entry file", "Error should mention failed to read entry file")
 }
 
 func TestPrintSuccess(t *testing.T) {
@@ -221,12 +169,8 @@ func TestPrintSuccess(t *testing.T) {
 
 	// Create a mock bundler (we'll need to create it through the bundler package)
 	// For now, just test that the function exists and can be called
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("printSuccess() panicked: %v", r)
-		}
-	}()
-
-	// We can't easily test this without mocking the bundler
-	// The function exists and is used in the root command, that's sufficient
+	assert.NotPanics(t, func() {
+		// We can't easily test this without mocking the bundler
+		// The function exists and is used in the root command, that's sufficient
+	}, "printSuccess() should not panic")
 }

@@ -121,7 +121,7 @@ project/
 local UI = require('ui.lua')
 local FancyPrint = require('utils/fancy_print.lua') 
 local Core = require('../core.lua')
-local EzUI = loadstring(game:HttpGet('https://example.com/ui.lua'))()
+local EzUI = loadstring(game:HttpGet('https://raw.githubusercontent.com/alfin-efendy/ez-rbx-ui/refs/heads/main/ui.lua'))()
 
 -- Your main code here
 ```
@@ -222,7 +222,7 @@ The release pipeline automatically:
 ## 🏗️ CI/CD Pipeline
 
 [![Release Pipeline](https://github.com/alfin-efendy/lua-bundler/actions/workflows/release.yml/badge.svg)](https://github.com/alfin-efendy/lua-bundler/actions/workflows/release.yml)
-[![APT Repository](https://github.com/alfin-efendy/lua-bundler/actions/workflows/apt-repository.yml/badge.svg)](https://github.com/alfin-efendy/lua-bundler/actions/workflows/apt-repository.yml)
+[![APT Repository](https://github.com/alfin-efendy/lua-bundler/actions/workflows/apt-publish.yml/badge.svg)](https://github.com/alfin-efendy/lua-bundler/actions/workflows/apt-publish.yml)
 
 **Separated Workflows:**
 - 🧪 **[CI Pipeline](/.github/workflows/ci.yml)**: Testing and quality checks
@@ -243,6 +243,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
+- [Cobra](https://github.com/spf13/cobra) - CLI interactions
+- [Lipgloss](https://github.com/charmbracelet/lipgloss) - Style terminal layouts
+- [Testify](https://github.com/stretchr/testify) - Unit test lib
 - Built for the Roblox development community
 - Inspired by modern bundling tools like Webpack and Rollup
 - Thanks to all contributors and users!

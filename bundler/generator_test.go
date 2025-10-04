@@ -3,10 +3,14 @@ package bundler
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateBundle(t *testing.T) {
-	b, _ := NewBundler("test.lua", false)
+	b, err := NewBundler("test.lua", false)
+	require.NoError(t, err, "NewBundler should not fail")
 
 	// Add some test modules
 	b.modules["./helper.lua"] = `local helper = {}
@@ -99,9 +103,7 @@ print(remote.fetch())`
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if !tt.check(result) {
-				t.Errorf("generateBundle() %s\nGenerated bundle:\n%s", tt.message, result)
-			}
+			assert.True(t, tt.check(result), "generateBundle() %s", tt.message)
 		})
 	}
 }
@@ -147,15 +149,14 @@ func TestEscapeString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := escapeString(tt.input)
-			if result != tt.expected {
-				t.Errorf("escapeString(%q) = %q, want %q", tt.input, result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result, "escapeString() result should match expected")
 		})
 	}
 }
 
 func TestGenerateBundle_EmptyModules(t *testing.T) {
-	b, _ := NewBundler("test.lua", false)
+	b, err := NewBundler("test.lua", false)
+	require.NoError(t, err, "NewBundler should not fail")
 	// No modules added
 
 	mainContent := `print("Hello World")`
@@ -163,25 +164,15 @@ func TestGenerateBundle_EmptyModules(t *testing.T) {
 	result := b.generateBundle(mainContent)
 
 	// Should still generate valid structure even with no modules
-	if !strings.Contains(result, "local EmbeddedModules = {}") {
-		t.Errorf("generateBundle() should contain EmbeddedModules table even with no modules")
-	}
-
-	if !strings.Contains(result, "local function loadModule(url)") {
-		t.Errorf("generateBundle() should contain loadModule function even with no modules")
-	}
-
-	if !strings.Contains(result, "-- Main Script") {
-		t.Errorf("generateBundle() should contain main script section")
-	}
-
-	if !strings.Contains(result, `print("Hello World")`) {
-		t.Errorf("generateBundle() should contain original main content")
-	}
+	assert.Contains(t, result, "local EmbeddedModules = {}", "generateBundle() should contain EmbeddedModules table even with no modules")
+	assert.Contains(t, result, "local function loadModule(url)", "generateBundle() should contain loadModule function even with no modules")
+	assert.Contains(t, result, "-- Main Script", "generateBundle() should contain main script section")
+	assert.Contains(t, result, `print("Hello World")`, "generateBundle() should contain original main content")
 }
 
 func TestGenerateBundle_ModuleIndentation(t *testing.T) {
-	b, _ := NewBundler("test.lua", false)
+	b, err := NewBundler("test.lua", false)
+	require.NoError(t, err, "NewBundler should not fail")
 
 	moduleContent := `local test = {}
 
@@ -216,9 +207,7 @@ return test`
 
 			// Non-empty lines in module should be indented with 4 spaces
 			if strings.TrimSpace(line) != "" {
-				if !strings.HasPrefix(line, "    ") {
-					t.Errorf("Module line should be indented with 4 spaces: %q", line)
-				}
+				assert.True(t, strings.HasPrefix(line, "    "), "Module line should be indented with 4 spaces: %q", line)
 			}
 		}
 	}
