@@ -137,21 +137,66 @@ jobs:
     - name: Make binary executable
       run: chmod +x ./${{ env.BINARY_NAME }}-linux-amd64
 
-    - name: Test bundling with example
+    - name: Test CLI help command
+      run: |
+        ./${{ env.BINARY_NAME }}-linux-amd64 --help
+        echo "✅ Help command working"
+
+    - name: Test basic bundling
       run: |
         mkdir -p test_output
-        ./${{ env.BINARY_NAME }}-linux-amd64 -entry example/core.lua -output test_output/bundle.lua
+        ./${{ env.BINARY_NAME }}-linux-amd64 -e example/myscript/main.lua -o test_output/bundle.lua
         
         # Verify output file exists and has content
         if [ ! -f "test_output/bundle.lua" ]; then
-          echo "Bundle file not created"
+          echo "❌ Bundle file not created"
           exit 1
         fi
         
         if [ ! -s "test_output/bundle.lua" ]; then
-          echo "Bundle file is empty"
+          echo "❌ Bundle file is empty"
           exit 1
         fi
         
-        echo "Integration test passed!"
+        echo "✅ Basic bundling test passed!"
+
+    - name: Test release mode bundling
+      run: |
+        ./${{ env.BINARY_NAME }}-linux-amd64 -e example/myscript/main.lua -o test_output/bundle-release.lua --release
+        
+        # Verify release bundle exists
+        if [ ! -f "test_output/bundle-release.lua" ]; then
+          echo "❌ Release bundle file not created"
+          exit 1
+        fi
+        
+        echo "✅ Release mode test passed!"
+
+    - name: Test complex bundling with dependencies
+      run: |
+        # Test with a more complex example that has dependencies
+        ./${{ env.BINARY_NAME }}-linux-amd64 -e example/myscript/main.lua -o test_output/complex-bundle.lua --verbose
+        
+        # Verify complex bundle exists
+        if [ ! -f "test_output/complex-bundle.lua" ]; then
+          echo "❌ Complex bundle file not created"
+          exit 1
+        fi
+        
+        echo "✅ Complex bundling test passed!"
+        
+    - name: Verify bundle contents
+      run: |
+        # Check that bundles contain expected content
+        if ! grep -q "Bundled Lua Script" test_output/bundle.lua; then
+          echo "❌ Bundle missing header"
+          exit 1
+        fi
+        
+        if ! grep -q "EmbeddedModules" test_output/bundle.lua; then
+          echo "❌ Bundle missing module structure"
+          exit 1
+        fi
+        
+        echo "✅ All integration tests passed!"
 
