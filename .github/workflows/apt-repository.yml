@@ -8,20 +8,26 @@ on:
 env:
   BINARY_NAME: lua-bundler
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 jobs:
   build-deb-and-publish:
     name: Build Debian Package and Update APT Repository
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' && !github.event.release.prerelease
+    if: github.event_name == 'release' && !github.event.release.prerelease || github.event_name == 'workflow_dispatch'
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     # Checkout gh-pages branch for APT repository
     - name: Checkout gh-pages branch
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         ref: gh-pages
         path: apt-repo
@@ -304,6 +310,9 @@ jobs:
         # Configure git
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
+        
+        # Configure git to use token
+        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         
         # Add all files
         git add -A

@@ -6,13 +6,21 @@ on:
 env:
   BINARY_NAME: lua-bundler
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 jobs:
   setup-repository:
     name: Initialize APT Repository on GitHub Pages
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Create gh-pages branch
       run: |
@@ -268,6 +276,10 @@ jobs:
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
+        
+        # Configure git to use token
+        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        
         git add -A
         git commit -m "Initialize APT repository structure" || echo "Nothing to commit"
         git push origin gh-pages
