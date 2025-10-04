@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-10-04
+
+### Added
+- **Modern CLI Framework**: Implemented Cobra CLI framework for professional command-line interface
+- **Beautiful Terminal Styling**: Added Lipgloss library for colored, styled output with emojis
+- **Modular Architecture**: Refactored codebase into clean, separated packages for better maintainability
+- **Enhanced User Experience**: Progress indicators, styled help text, and improved error messages
+- **Verbose Mode**: Added `--verbose` flag for detailed processing information
+- **Professional Help System**: Comprehensive help documentation with examples and feature descriptions
+
+### Changed
+- **CLI Flag Format**: Modernized to use `-e`/`--entry`, `-o`/`--output`, `--release`, `--verbose`
+- **Code Organization**: Split monolithic `main.go` into modular packages:
+  - `cmd/`: CLI interface and command handling with Cobra
+  - `bundler/`: Core functionality split across specialized files
+    - `bundler.go`: Main bundler struct and Bundle() method
+    - `processor.go`: File processing, module resolution, HTTP downloading
+    - `generator.go`: Bundle generation and module replacement logic
+    - `utils.go`: Debug statement removal utilities
+- **Dependencies**: Updated to Go 1.24 with Cobra v1.8.1 and Lipgloss v0.13.1
+- **Terminal Output**: Enhanced with colors, emojis, and professional formatting
+- **Documentation**: Updated README.md with new CLI interface and architecture details
+
+### Fixed
+- **Code Maintainability**: Separated concerns make the codebase easier to understand and extend
+- **User Interface**: Improved clarity with styled output and better error handling
+- **Development Workflow**: Updated Makefile to use new CLI flag format while maintaining compatibility
+
+### Infrastructure
+- **Package Structure**: Clean separation between CLI and core bundling logic
+- **Modern Dependencies**: Professional-grade libraries for CLI and terminal styling
+- **Backward Compatibility**: All existing functionality preserved while adding improvements
+
 ## [1.0.1] - 2025-10-04
 
 ### Added
@@ -61,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cross-platform builds (Linux, macOS, Windows)
 - Command-line interface with customizable entry and output files
 
-[Unreleased]: https://github.com/alfin-efendy/lua-bundler/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/alfin-efendy/lua-bundler/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/alfin-efendy/lua-bundler/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/alfin-efendy/lua-bundler/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/alfin-efendy/lua-bundler/releases/tag/v1.0.0
