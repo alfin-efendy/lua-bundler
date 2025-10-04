@@ -2,10 +2,14 @@ package bundler
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIsLocalModule(t *testing.T) {
-	b, _ := NewBundler("test.lua", false)
+	b, err := NewBundler("test.lua", false)
+	require.NoError(t, err, "NewBundler should not fail")
 
 	tests := []struct {
 		name       string
@@ -62,15 +66,14 @@ func TestIsLocalModule(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := b.isLocalModule(tt.modulePath)
-			if got != tt.want {
-				t.Errorf("isLocalModule(%q) = %v, want %v", tt.modulePath, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got, "isLocalModule(%q) should return %v", tt.modulePath, tt.want)
 		})
 	}
 }
 
 func TestResolveModulePath(t *testing.T) {
-	b, _ := NewBundler("/base/main.lua", false)
+	b, err := NewBundler("/base/main.lua", false)
+	require.NoError(t, err, "NewBundler should not fail")
 	b.baseDir = "/base"
 
 	tests := []struct {
@@ -126,9 +129,7 @@ func TestResolveModulePath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := b.resolveModulePath(tt.currentFile, tt.modulePath)
-			if got != tt.want {
-				t.Errorf("resolveModulePath(%q, %q) = %v, want %v", tt.currentFile, tt.modulePath, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got, "resolveModulePath(%q, %q) should return correct path", tt.currentFile, tt.modulePath)
 		})
 	}
 }

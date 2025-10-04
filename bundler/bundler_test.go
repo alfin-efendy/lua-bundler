@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewBundler(t *testing.T) {
@@ -39,37 +42,17 @@ func TestNewBundler(t *testing.T) {
 			b, err := NewBundler(tt.entryFile, tt.verbose)
 
 			if tt.wantErr {
-				if err == nil {
-					t.Errorf("NewBundler() expected error, got nil")
-				}
+				assert.Error(t, err, "NewBundler() should return error")
 				return
 			}
 
-			if err != nil {
-				t.Errorf("NewBundler() unexpected error: %v", err)
-				return
-			}
+			require.NoError(t, err, "NewBundler() should not return error")
+			require.NotNil(t, b, "NewBundler() should return non-nil bundler")
 
-			if b == nil {
-				t.Errorf("NewBundler() returned nil bundler")
-				return
-			}
-
-			if b.entryFile != tt.entryFile {
-				t.Errorf("NewBundler() entryFile = %v, want %v", b.entryFile, tt.entryFile)
-			}
-
-			if b.verbose != tt.verbose {
-				t.Errorf("NewBundler() verbose = %v, want %v", b.verbose, tt.verbose)
-			}
-
-			if b.modules == nil {
-				t.Errorf("NewBundler() modules map is nil")
-			}
-
-			if b.httpClient == nil {
-				t.Errorf("NewBundler() httpClient is nil")
-			}
+			assert.Equal(t, tt.entryFile, b.entryFile, "entryFile should match")
+			assert.Equal(t, tt.verbose, b.verbose, "verbose flag should match")
+			assert.NotNil(t, b.modules, "modules map should not be nil")
+			assert.NotNil(t, b.httpClient, "httpClient should not be nil")
 		})
 	}
 }
@@ -77,9 +60,7 @@ func TestNewBundler(t *testing.T) {
 func TestBundle(t *testing.T) {
 	// Create temporary test files
 	tempDir, err := os.MkdirTemp("", "bundler-test")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
+	require.NoError(t, err, "Failed to create temp dir")
 	defer os.RemoveAll(tempDir)
 
 	// Create test files
@@ -102,13 +83,11 @@ end
 return m
 `
 
-	if err := os.WriteFile(mainFile, []byte(mainContent), 0644); err != nil {
-		t.Fatalf("Failed to write main file: %v", err)
-	}
+	err = os.WriteFile(mainFile, []byte(mainContent), 0644)
+	require.NoError(t, err, "Failed to write main file")
 
-	if err := os.WriteFile(moduleFile, []byte(moduleContent), 0644); err != nil {
-		t.Fatalf("Failed to write module file: %v", err)
-	}
+	err = os.WriteFile(moduleFile, []byte(moduleContent), 0644)
+	require.NoError(t, err, "Failed to write module file")
 
 	tests := []struct {
 		name        string
@@ -143,31 +122,20 @@ return m
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b, err := NewBundler(tt.entryFile, false)
-			if err != nil {
-				t.Fatalf("NewBundler() failed: %v", err)
-			}
+			require.NoError(t, err, "NewBundler() should not fail")
 
 			result, err := b.Bundle(tt.release)
 
 			if tt.wantErr {
-				if err == nil {
-					t.Errorf("Bundle() expected error, got nil")
-				}
+				assert.Error(t, err, "Bundle() should return error")
 				return
 			}
 
-			if err != nil {
-				t.Errorf("Bundle() unexpected error: %v", err)
-				return
-			}
+			require.NoError(t, err, "Bundle() should not return error")
+			assert.NotEmpty(t, result, "Bundle() should return non-empty result")
 
-			if result == "" {
-				t.Errorf("Bundle() returned empty result")
-				return
-			}
-
-			if tt.checkOutput != nil && !tt.checkOutput(result) {
-				t.Errorf("Bundle() output validation failed")
+			if tt.checkOutput != nil {
+				assert.True(t, tt.checkOutput(result), "Bundle() output validation should pass")
 			}
 		})
 	}
@@ -175,37 +143,24 @@ return m
 
 func TestBundle_NonexistentFile(t *testing.T) {
 	b, err := NewBundler("nonexistent.lua", false)
-	if err != nil {
-		t.Fatalf("NewBundler() failed: %v", err)
-	}
+	require.NoError(t, err, "NewBundler() should not fail")
 
 	_, err = b.Bundle(false)
-	if err == nil {
-		t.Errorf("Bundle() expected error for nonexistent file, got nil")
-	}
+	assert.Error(t, err, "Bundle() should return error for nonexistent file")
 }
 
 func TestGetModules(t *testing.T) {
 	b, err := NewBundler("test.lua", false)
-	if err != nil {
-		t.Fatalf("NewBundler() failed: %v", err)
-	}
+	require.NoError(t, err, "NewBundler() should not fail")
 
 	// Initially should be empty
 	modules := b.GetModules()
-	if len(modules) != 0 {
-		t.Errorf("GetModules() expected empty map, got %d items", len(modules))
-	}
+	assert.Empty(t, modules, "GetModules() should return empty map initially")
 
 	// Add a module manually for testing
 	b.modules["test"] = "content"
-
 	modules = b.GetModules()
-	if len(modules) != 1 {
-		t.Errorf("GetModules() expected 1 item, got %d", len(modules))
-	}
 
-	if modules["test"] != "content" {
-		t.Errorf("GetModules() expected 'content', got %v", modules["test"])
-	}
+	assert.Len(t, modules, 1, "GetModules() should return map with 1 item")
+	assert.Equal(t, "content", modules["test"], "GetModules() should return correct content")
 }

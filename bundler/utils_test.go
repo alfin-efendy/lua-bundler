@@ -3,6 +3,8 @@ package bundler
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRemoveDebugStatements(t *testing.T) {
@@ -128,10 +130,7 @@ return calculate()`,
 			expected := strings.ReplaceAll(tt.expected, "\r\n", "\n")
 			result = strings.ReplaceAll(result, "\r\n", "\n")
 
-			if result != expected {
-				t.Errorf("removeDebugStatements() failed for %s\nInput:\n%s\nExpected:\n%s\nGot:\n%s",
-					tt.name, tt.input, expected, result)
-			}
+			assert.Equal(t, expected, result, "removeDebugStatements() should match expected output for %s", tt.name)
 		})
 	}
 }
@@ -195,7 +194,5 @@ end
 	expected = strings.ReplaceAll(expected, "\r\n", "\n")
 	result = strings.ReplaceAll(result, "\r\n", "\n")
 
-	if result != expected {
-		t.Errorf("removeDebugStatements() complex case failed\nExpected (%d chars):\n%q\nGot (%d chars):\n%q", len(expected), expected, len(result), result)
-	}
+	assert.Equal(t, expected, result, "removeDebugStatements() complex case should match expected output")
 }
