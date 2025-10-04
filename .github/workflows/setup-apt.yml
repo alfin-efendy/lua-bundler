@@ -52,11 +52,21 @@ jobs:
         Date: $(date -Ru)
         EOF
 
-        # Create empty Packages files
+        # Create empty Packages files (remove any existing files first)
+        rm -f dists/stable/main/binary-amd64/Packages*
+        rm -f dists/stable/main/binary-arm64/Packages*
+        
+        # Create fresh empty Packages files
         touch dists/stable/main/binary-amd64/Packages
         touch dists/stable/main/binary-arm64/Packages
-        gzip -k dists/stable/main/binary-amd64/Packages
-        gzip -k dists/stable/main/binary-arm64/Packages
+        
+        # Compress with force flag to avoid conflicts
+        gzip -9f dists/stable/main/binary-amd64/Packages
+        gzip -9f dists/stable/main/binary-arm64/Packages
+        
+        # Create uncompressed versions again for compatibility
+        touch dists/stable/main/binary-amd64/Packages
+        touch dists/stable/main/binary-arm64/Packages
 
         # Create initial index page
         cat > index.html << 'EOF'

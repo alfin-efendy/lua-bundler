@@ -250,13 +250,21 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y apt-utils gpg
 
+        # Remove existing Packages files to avoid conflicts
+        rm -f dists/stable/main/binary-amd64/Packages*
+        rm -f dists/stable/main/binary-arm64/Packages*
+        
         # Generate Packages files
         dpkg-scanpackages --arch amd64 pool/ > dists/stable/main/binary-amd64/Packages
         dpkg-scanpackages --arch arm64 pool/ > dists/stable/main/binary-arm64/Packages
         
-        # Compress Packages files
-        gzip -k dists/stable/main/binary-amd64/Packages
-        gzip -k dists/stable/main/binary-arm64/Packages
+        # Compress Packages files (force overwrite if exists)
+        gzip -9f dists/stable/main/binary-amd64/Packages
+        gzip -9f dists/stable/main/binary-arm64/Packages
+        
+        # Also create uncompressed versions for compatibility
+        gunzip -c dists/stable/main/binary-amd64/Packages.gz > dists/stable/main/binary-amd64/Packages
+        gunzip -c dists/stable/main/binary-arm64/Packages.gz > dists/stable/main/binary-arm64/Packages
 
         # Create Release file
         cat > dists/stable/Release << EOF
