@@ -1,0 +1,9 @@
+Origin: alfin-efendy
+Label: alfin-efendy's APT Repository
+Suite: stable
+Codename: stable
+Version: 1.0
+Architectures: amd64 arm64
+Components: main
+Description: APT repository for lua-bundler and other packages
+Date: Sat, 04 Oct 2025 05:01:40 +0000
