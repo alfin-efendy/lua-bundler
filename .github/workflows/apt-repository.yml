@@ -281,14 +281,37 @@ jobs:
 
         # Generate checksums for Release file
         cd dists/stable
-        {
-          echo "MD5Sum:"
-          find . -name "Packages*" -type f -exec md5sum {} \; | sed 's|./| |'
-          echo "SHA1:"
-          find . -name "Packages*" -type f -exec sha1sum {} \; | sed 's|./| |'
-          echo "SHA256:"
-          find . -name "Packages*" -type f -exec sha256sum {} \; | sed 's|./| |'
-        } >> Release
+        
+        # Generate proper formatted hashes with file sizes
+        echo "MD5Sum:" >> Release
+        find . -name "Packages*" -type f -exec sh -c '
+          for file; do
+            md5=$(md5sum "$file" | cut -d" " -f1)
+            size=$(stat -c%s "$file")
+            path=${file#./}
+            printf " %s %16s %s\n" "$md5" "$size" "$path"
+          done
+        ' _ {} + >> Release
+        
+        echo "SHA1:" >> Release  
+        find . -name "Packages*" -type f -exec sh -c '
+          for file; do
+            sha1=$(sha1sum "$file" | cut -d" " -f1)
+            size=$(stat -c%s "$file") 
+            path=${file#./}
+            printf " %s %16s %s\n" "$sha1" "$size" "$path"
+          done
+        ' _ {} + >> Release
+        
+        echo "SHA256:" >> Release
+        find . -name "Packages*" -type f -exec sh -c '
+          for file; do
+            sha256=$(sha256sum "$file" | cut -d" " -f1)
+            size=$(stat -c%s "$file")
+            path=${file#./}
+            printf " %s %16s %s\n" "$sha256" "$size" "$path"
+          done  
+        ' _ {} + >> Release
 
     - name: Create repository index page
       run: |
