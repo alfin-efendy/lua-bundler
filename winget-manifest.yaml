@@ -1,0 +1,29 @@
+PackageIdentifier: alfin-efendy.lua-bundler
+PackageVersion: 1.0.0
+PackageName: Lua Bundler
+Publisher: alfin-efendy
+License: MIT
+LicenseUrl: https://github.com/alfin-efendy/lua-bundler/blob/main/LICENSE
+ShortDescription: Lua script bundler for Roblox development
+Description: |
+  A tool for bundling Lua scripts with dependency resolution,
+  specifically designed for Roblox script development.
+  Supports both local requires and HTTP loadstring patterns.
+PackageUrl: https://github.com/alfin-efendy/lua-bundler
+Tags:
+- lua
+- roblox
+- bundler
+- cli
+- development-tool
+Installers:
+- Architecture: x64
+  InstallerType: portable
+  InstallerUrl: https://github.com/alfin-efendy/lua-bundler/releases/download/v1.0.0/lua-bundler-windows-amd64.exe
+  InstallerSha256: SHA256_PLACEHOLDER
+- Architecture: arm64
+  InstallerType: portable
+  InstallerUrl: https://github.com/alfin-efendy/lua-bundler/releases/download/v1.0.0/lua-bundler-windows-arm64.exe
+  InstallerSha256: SHA256_PLACEHOLDER
+ManifestType: singleton
+ManifestVersion: 1.4.0

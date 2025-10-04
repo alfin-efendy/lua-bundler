@@ -1,0 +1,204 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [published]
+
+env:
+  GO_VERSION: '1.24'
+  BINARY_NAME: lua-bundler
+
+jobs:
+  # Test and Build
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Run tests
+      run: go test -v ./...
+
+    - name: Run go vet
+      run: go vet ./...
+
+    - name: Run go fmt check
+      run: |
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "Code is not formatted. Please run 'go fmt ./...'"
+          gofmt -s -l .
+          exit 1
+        fi
+
+  # Build for multiple platforms
+  build:
+    name: Build
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            suffix: ""
+          - goos: linux
+            goarch: arm64
+            suffix: ""
+          - goos: darwin
+            goarch: amd64
+            suffix: ""
+          - goos: darwin
+            goarch: arm64
+            suffix: ""
+          - goos: windows
+            goarch: amd64
+            suffix: ".exe"
+          - goos: windows
+            goarch: arm64
+            suffix: ".exe"
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Get version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "release" ]; then
+          VERSION=${{ github.event.release.tag_name }}
+        else
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev-$(git rev-parse --short HEAD)")
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
+      run: |
+        mkdir -p dist
+        BINARY_PATH="dist/${BINARY_NAME}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}"
+        go build -a -installsuffix cgo -ldflags "-X main.Version=${{ steps.version.outputs.version }} -s -w" -o "$BINARY_PATH" .
+        
+        # Create checksums
+        cd dist
+        sha256sum "${BINARY_NAME}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}" > "${BINARY_NAME}-${{ matrix.goos }}-${{ matrix.goarch }}.sha256"
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.BINARY_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: |
+          dist/${{ env.BINARY_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}
+          dist/${{ env.BINARY_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}.sha256
+
+  # Integration test with examples
+  integration-test:
+    name: Integration Test
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download Linux binary
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ env.BINARY_NAME }}-linux-amd64
+        path: ./
+
+    - name: Make binary executable
+      run: chmod +x ./${{ env.BINARY_NAME }}-linux-amd64
+
+    - name: Test bundling with example
+      run: |
+        mkdir -p test_output
+        ./${{ env.BINARY_NAME }}-linux-amd64 -entry example/core.lua -output test_output/bundle.lua
+        
+        # Verify output file exists and has content
+        if [ ! -f "test_output/bundle.lua" ]; then
+          echo "Bundle file not created"
+          exit 1
+        fi
+        
+        if [ ! -s "test_output/bundle.lua" ]; then
+          echo "Bundle file is empty"
+          exit 1
+        fi
+        
+        echo "Integration test passed!"
+
+  # Release binaries to GitHub Releases
+  release:
+    name: GitHub Release
+    if: github.event_name == 'release'
+    needs: [test, build, integration-test]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Prepare release assets
+      run: |
+        mkdir -p release
+        for dir in artifacts/*/; do
+          cp -r "$dir"* release/
+        done
+        ls -la release/
+
+    - name: Upload release assets
+      uses: softprops/action-gh-release@v2
+      with:
+        files: release/*
+        body: |
+          ## What's Changed
+          
+          See the [CHANGELOG](CHANGELOG.md) for detailed changes.
+          
+          ## Installation
+          
+          ### Direct Download
+          Download the appropriate binary for your platform from the assets below.
+          
+          ### Package Managers
+          - **Homebrew**: `brew install lua-bundler`
+          - **Winget**: `winget install lua-bundler`
+          - **APT**: `sudo apt install lua-bundler`
+          
+          ## Checksums
+          
+          Verify your download with the provided `.sha256` files.
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
