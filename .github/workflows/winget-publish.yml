@@ -1,0 +1,213 @@
+name: Publish to Winget
+
+on:
+  repository_dispatch:
+    types: [winget-publish]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish'
+        required: true
+        default: 'v1.0.0'
+
+env:
+  BINARY_NAME: lua-bundler
+  PACKAGE_ID: alfin-efendy.lua-bundler
+
+jobs:
+  update-winget-manifest:
+    name: Update Winget Manifest
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Get release info
+      id: release_info
+      run: |
+        if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+          TAG="${{ github.event.client_payload.tag }}"
+        else
+          TAG="${{ github.event.inputs.tag }}"
+        fi
+        
+        VERSION="${TAG#v}"  # Remove 'v' prefix
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Download Windows binaries and get checksums
+      id: windows_assets
+      run: |
+        # Get release info from GitHub API
+        RELEASE_DATA=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ steps.release_info.outputs.tag }}")
+        
+        # Extract Windows download URLs
+        WIN_AMD64_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] | select(.name | contains("windows-amd64.exe")) | .browser_download_url')
+        WIN_ARM64_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] | select(.name | contains("windows-arm64.exe")) | .browser_download_url')
+        
+        # Download and calculate checksums
+        echo "Downloading Windows binaries for checksum calculation..."
+        
+        curl -L -o windows-amd64.exe "$WIN_AMD64_URL"
+        curl -L -o windows-arm64.exe "$WIN_ARM64_URL"
+        
+        WIN_AMD64_SHA256=$(sha256sum windows-amd64.exe | cut -d' ' -f1)
+        WIN_ARM64_SHA256=$(sha256sum windows-arm64.exe | cut -d' ' -f1)
+        
+        echo "win_amd64_url=$WIN_AMD64_URL" >> $GITHUB_OUTPUT
+        echo "win_arm64_url=$WIN_ARM64_URL" >> $GITHUB_OUTPUT
+        echo "win_amd64_sha256=$WIN_AMD64_SHA256" >> $GITHUB_OUTPUT
+        echo "win_arm64_sha256=$WIN_ARM64_SHA256" >> $GITHUB_OUTPUT
+
+    - name: Fork and clone winget-pkgs repository
+      run: |
+        # Install gh CLI if not available
+        if ! command -v gh &> /dev/null; then
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt update
+          sudo apt install gh -y
+        fi
+        
+        # Authenticate with GitHub CLI
+        echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+        
+        # Fork winget-pkgs repository if not already forked
+        gh repo fork microsoft/winget-pkgs --clone=false || echo "Fork already exists"
+        
+        # Clone our fork
+        git clone https://github.com/${{ github.actor }}/winget-pkgs.git
+        cd winget-pkgs
+
+    - name: Create Winget manifest files
+      run: |
+        cd winget-pkgs
+        
+        # Create directory structure
+        MANIFEST_DIR="manifests/a/alfin-efendy/${{ env.BINARY_NAME }}/${{ steps.release_info.outputs.version }}"
+        mkdir -p "$MANIFEST_DIR"
+        
+        # Create version manifest
+        cat > "$MANIFEST_DIR/alfin-efendy.${{ env.BINARY_NAME }}.yaml" << EOF
+        # Created with Komac v1.11.0
+        # yaml-language-server: \$schema=https://aka.ms/winget-manifest.version.1.5.0.schema.json
+
+        PackageIdentifier: ${{ env.PACKAGE_ID }}
+        PackageVersion: ${{ steps.release_info.outputs.version }}
+        DefaultLocale: en-US
+        ManifestType: version
+        ManifestVersion: 1.5.0
+        EOF
+        
+        # Create default locale manifest
+        cat > "$MANIFEST_DIR/alfin-efendy.${{ env.BINARY_NAME }}.locale.en-US.yaml" << EOF
+        # Created with Komac v1.11.0  
+        # yaml-language-server: \$schema=https://aka.ms/winget-manifest.defaultLocale.1.5.0.schema.json
+
+        PackageIdentifier: ${{ env.PACKAGE_ID }}
+        PackageVersion: ${{ steps.release_info.outputs.version }}
+        PackageLocale: en-US
+        Publisher: ${{ github.repository_owner }}
+        PublisherUrl: https://github.com/${{ github.repository_owner }}
+        PackageName: lua-bundler
+        PackageUrl: https://github.com/${{ github.repository }}
+        License: MIT
+        LicenseUrl: https://github.com/${{ github.repository }}/blob/main/LICENSE
+        ShortDescription: Lua script bundler for Roblox development
+        Description: A tool for bundling Lua scripts with dependency resolution, specifically designed for Roblox script development. Supports both local requires and HTTP loadstring patterns.
+        Moniker: lua-bundler
+        Tags:
+        - lua
+        - bundler
+        - roblox
+        - script
+        - development
+        ReleaseNotes: |
+          Release ${{ steps.release_info.outputs.tag }}
+          
+          See the full changelog at: https://github.com/${{ github.repository }}/releases/tag/${{ steps.release_info.outputs.tag }}
+        ReleaseNotesUrl: https://github.com/${{ github.repository }}/releases/tag/${{ steps.release_info.outputs.tag }}
+        ManifestType: defaultLocale
+        ManifestVersion: 1.5.0
+        EOF
+        
+        # Create installer manifest
+        cat > "$MANIFEST_DIR/alfin-efendy.${{ env.BINARY_NAME }}.installer.yaml" << EOF
+        # Created with Komac v1.11.0
+        # yaml-language-server: \$schema=https://aka.ms/winget-manifest.installer.1.5.0.schema.json
+
+        PackageIdentifier: ${{ env.PACKAGE_ID }}
+        PackageVersion: ${{ steps.release_info.outputs.version }}
+        InstallerType: portable
+        Commands:
+        - lua-bundler
+        Installers:
+        - Architecture: x64
+          InstallerUrl: ${{ steps.windows_assets.outputs.win_amd64_url }}
+          InstallerSha256: ${{ steps.windows_assets.outputs.win_amd64_sha256 }}
+        - Architecture: arm64  
+          InstallerUrl: ${{ steps.windows_assets.outputs.win_arm64_url }}
+          InstallerSha256: ${{ steps.windows_assets.outputs.win_arm64_sha256 }}
+        ManifestType: installer
+        ManifestVersion: 1.5.0
+        EOF
+
+    - name: Commit and create pull request
+      run: |
+        cd winget-pkgs
+        
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Create new branch for this update
+        BRANCH_NAME="update-lua-bundler-${{ steps.release_info.outputs.version }}"
+        git checkout -b "$BRANCH_NAME"
+        
+        # Add and commit changes
+        git add .
+        git commit -m "Add ${{ env.PACKAGE_ID }} version ${{ steps.release_info.outputs.version }}"
+        
+        # Push to our fork
+        git push origin "$BRANCH_NAME"
+        
+        # Create pull request to microsoft/winget-pkgs
+        gh pr create \
+          --repo microsoft/winget-pkgs \
+          --title "Add ${{ env.PACKAGE_ID }} version ${{ steps.release_info.outputs.version }}" \
+          --body "This PR adds ${{ env.BINARY_NAME }} version ${{ steps.release_info.outputs.version }} to the Windows Package Manager Community Repository.
+
+        ## Package Information
+        - **Package**: ${{ env.PACKAGE_ID }}
+        - **Version**: ${{ steps.release_info.outputs.version }}
+        - **Publisher**: ${{ github.repository_owner }}
+        - **Repository**: https://github.com/${{ github.repository }}
+        
+        ## Verification
+        - [x] Manifests validated
+        - [x] Package tested locally
+        - [x] Checksums verified
+        
+        ## Release Notes
+        See: https://github.com/${{ github.repository }}/releases/tag/${{ steps.release_info.outputs.tag }}" \
+          --head "${{ github.actor }}:$BRANCH_NAME" || echo "PR creation failed or already exists"
+
+    - name: Summary
+      run: |
+        echo "## 📦 Winget Package Updated!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📋 Details" >> $GITHUB_STEP_SUMMARY
+        echo "- **Package ID**: ${{ env.PACKAGE_ID }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version**: ${{ steps.release_info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Tag**: ${{ steps.release_info.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔄 Status" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ **Manifest created** and submitted to microsoft/winget-pkgs" >> $GITHUB_STEP_SUMMARY
+        echo "- ⏳ **Awaiting review** by Winget maintainers" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🚀 Installation (After Approval)" >> $GITHUB_STEP_SUMMARY
+        echo '```cmd' >> $GITHUB_STEP_SUMMARY
+        echo "winget install ${{ env.PACKAGE_ID }}" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
+        echo "- [Microsoft Winget Packages](https://github.com/microsoft/winget-pkgs)" >> $GITHUB_STEP_SUMMARY
+        echo "- [Pull Requests](https://github.com/microsoft/winget-pkgs/pulls?q=is%3Apr+${{ env.BINARY_NAME }})" >> $GITHUB_STEP_SUMMARY

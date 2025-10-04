@@ -1,0 +1,158 @@
+name: Publish to Homebrew
+
+on:
+  repository_dispatch:
+    types: [homebrew-publish]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish'
+        required: true
+        default: 'v1.0.0'
+
+env:
+  BINARY_NAME: lua-bundler
+
+jobs:
+  update-homebrew-tap:
+    name: Update Homebrew Tap
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Get release info
+      id: release_info
+      run: |
+        if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+          TAG="${{ github.event.client_payload.tag }}"
+        else
+          TAG="${{ github.event.inputs.tag }}"
+        fi
+        
+        VERSION="${TAG#v}"  # Remove 'v' prefix
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Download release assets info
+      id: release_assets
+      run: |
+        # Get release info from GitHub API
+        RELEASE_DATA=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ steps.release_info.outputs.tag }}")
+        
+        # Extract download URLs and calculate checksums
+        MACOS_AMD64_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] | select(.name | contains("darwin-amd64")) | .browser_download_url' | head -1)
+        MACOS_ARM64_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] | select(.name | contains("darwin-arm64")) | .browser_download_url' | head -1)
+        LINUX_AMD64_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] | select(.name | contains("linux-amd64")) | .browser_download_url' | head -1)
+        LINUX_ARM64_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[] | select(.name | contains("linux-arm64")) | .browser_download_url' | head -1)
+        
+        # Download and calculate checksums
+        echo "Downloading binaries for checksum calculation..."
+        
+        curl -L -o darwin-amd64 "$MACOS_AMD64_URL"
+        curl -L -o darwin-arm64 "$MACOS_ARM64_URL"  
+        curl -L -o linux-amd64 "$LINUX_AMD64_URL"
+        curl -L -o linux-arm64 "$LINUX_ARM64_URL"
+        
+        MACOS_AMD64_SHA256=$(sha256sum darwin-amd64 | cut -d' ' -f1)
+        MACOS_ARM64_SHA256=$(sha256sum darwin-arm64 | cut -d' ' -f1)
+        LINUX_AMD64_SHA256=$(sha256sum linux-amd64 | cut -d' ' -f1)  
+        LINUX_ARM64_SHA256=$(sha256sum linux-arm64 | cut -d' ' -f1)
+        
+        echo "macos_amd64_url=$MACOS_AMD64_URL" >> $GITHUB_OUTPUT
+        echo "macos_arm64_url=$MACOS_ARM64_URL" >> $GITHUB_OUTPUT
+        echo "linux_amd64_url=$LINUX_AMD64_URL" >> $GITHUB_OUTPUT
+        echo "linux_arm64_url=$LINUX_ARM64_URL" >> $GITHUB_OUTPUT
+        echo "macos_amd64_sha256=$MACOS_AMD64_SHA256" >> $GITHUB_OUTPUT
+        echo "macos_arm64_sha256=$MACOS_ARM64_SHA256" >> $GITHUB_OUTPUT
+        echo "linux_amd64_sha256=$LINUX_AMD64_SHA256" >> $GITHUB_OUTPUT
+        echo "linux_arm64_sha256=$LINUX_ARM64_SHA256" >> $GITHUB_OUTPUT
+
+    - name: Checkout Homebrew tap repository
+      uses: actions/checkout@v5
+      with:
+        repository: alfin-efendy/homebrew-tap
+        token: ${{ secrets.GITHUB_TOKEN }}
+        path: homebrew-tap
+
+    - name: Create Formula directory
+      run: |
+        mkdir -p homebrew-tap/Formula
+
+    - name: Generate Homebrew formula
+      run: |
+        cat > homebrew-tap/Formula/${{ env.BINARY_NAME }}.rb << 'EOF'
+        class LuaBundler < Formula
+          desc "Lua script bundler for Roblox development"
+          homepage "https://github.com/${{ github.repository }}"
+          version "${{ steps.release_info.outputs.version }}"
+          
+          on_macos do
+            if Hardware::CPU.arm?
+              url "${{ steps.release_assets.outputs.macos_arm64_url }}"
+              sha256 "${{ steps.release_assets.outputs.macos_arm64_sha256 }}"
+            else
+              url "${{ steps.release_assets.outputs.macos_amd64_url }}"
+              sha256 "${{ steps.release_assets.outputs.macos_amd64_sha256 }}"
+            end
+          end
+          
+          on_linux do
+            if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
+              url "${{ steps.release_assets.outputs.linux_arm64_url }}"
+              sha256 "${{ steps.release_assets.outputs.linux_arm64_sha256 }}"
+            else
+              url "${{ steps.release_assets.outputs.linux_amd64_url }}"
+              sha256 "${{ steps.release_assets.outputs.linux_amd64_sha256 }}"
+            end
+          end
+
+          def install
+            bin.install "${{ env.BINARY_NAME }}"
+          end
+
+          test do
+            system "#{bin}/${{ env.BINARY_NAME }}", "--version"
+          end
+        end
+        EOF
+
+    - name: Commit and push changes
+      run: |
+        cd homebrew-tap
+        
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        git add Formula/${{ env.BINARY_NAME }}.rb
+        git commit -m "Update ${{ env.BINARY_NAME }} to ${{ steps.release_info.outputs.version }}" || exit 0
+        git push origin main
+
+    - name: Create pull request if needed
+      run: |
+        cd homebrew-tap
+        
+        # Check if there are any differences
+        if git diff --quiet HEAD~1; then
+          echo "No changes to commit"
+        else
+          echo "Formula updated successfully!"
+        fi
+
+    - name: Summary
+      run: |
+        echo "## 🍺 Homebrew Formula Updated!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📋 Details" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version**: ${{ steps.release_info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Tag**: ${{ steps.release_info.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Repository**: alfin-efendy/homebrew-tap" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🚀 Installation" >> $GITHUB_STEP_SUMMARY
+        echo '```bash' >> $GITHUB_STEP_SUMMARY
+        echo "brew tap alfin-efendy/tap" >> $GITHUB_STEP_SUMMARY
+        echo "brew install ${{ env.BINARY_NAME }}" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY  
+        echo "- [Homebrew Tap Repository](https://github.com/alfin-efendy/homebrew-tap)" >> $GITHUB_STEP_SUMMARY
+        echo "- [Formula File](https://github.com/alfin-efendy/homebrew-tap/blob/main/Formula/${{ env.BINARY_NAME }}.rb)" >> $GITHUB_STEP_SUMMARY

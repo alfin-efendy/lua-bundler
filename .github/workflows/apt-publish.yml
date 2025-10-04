@@ -1,9 +1,11 @@
-name: Publish APT Repository
+name: APT Publish
 
 on:
   release:
     types: [published]
   workflow_dispatch:
+  repository_dispatch:
+    types: [apt-publish]
 
 env:
   BINARY_NAME: lua-bundler

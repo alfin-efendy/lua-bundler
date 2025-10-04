@@ -154,13 +154,71 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute
 - **[Changelog](CHANGELOG.md)** - Release notes and changes
 
-## 🏗️ CI/CD
+## 🚀 Development
 
-This project uses GitHub Actions for:
-- ✅ **Continuous Integration**: Tests on every push/PR
-- 🏗️ **Multi-platform Builds**: Linux, macOS, Windows (AMD64 + ARM64)  
-- 📦 **Automated Publishing**: Homebrew, Winget, APT, Docker
-- 🔄 **Release Automation**: Automatic releases on git tags
+### Building from Source
+```bash
+# Clone the repository
+git clone https://github.com/alfin-efendy/lua-bundler.git
+cd lua-bundler
+
+# Install dependencies
+go mod download
+
+# Build for your platform
+make build
+
+# Run tests
+make test
+
+# Bundle example and test
+make example
+```
+
+### Creating Releases
+
+```bash
+# Use the automated release script (recommended)
+./scripts/create-release.sh
+
+# Or manually:
+# 1. Update CHANGELOG.md with new version
+# 2. Create and push tag
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+**Release Process:**
+1. 📝 **Update CHANGELOG.md** - Document changes for the new version
+2. 🏷️ **Create Tag** - Use semantic versioning (v1.0.0, v1.1.0, v2.0.0)
+3. 🔄 **CI Quality Gate** - Release waits for CI pipeline to pass
+4. 🚀 **Automated Publishing** - All package managers update automatically
+
+The release pipeline automatically:
+1. ✅ **Builds** binaries for all platforms
+2. 📦 **Creates** GitHub release with assets
+3. 🔄 **Updates** all package managers:
+   - APT repository (immediate)
+   - Homebrew tap (immediate)
+   - Winget (requires approval)
+
+## 🏗️ CI/CD Pipeline
+
+[![Release Pipeline](https://github.com/alfin-efendy/lua-bundler/actions/workflows/release.yml/badge.svg)](https://github.com/alfin-efendy/lua-bundler/actions/workflows/release.yml)
+[![APT Repository](https://github.com/alfin-efendy/lua-bundler/actions/workflows/apt-repository.yml/badge.svg)](https://github.com/alfin-efendy/lua-bundler/actions/workflows/apt-repository.yml)
+
+**Separated Workflows:**
+- 🧪 **[CI Pipeline](/.github/workflows/ci.yml)**: Testing and quality checks
+- � **[Release Pipeline](/.github/workflows/release.yml)**: Automated releases  
+- 📦 **[Package Publishers](/.github/workflows/)**: APT, Homebrew, Winget
+
+**Features:**
+- ✅ Multi-platform builds (Linux, macOS, Windows)
+- 🔄 Automatic package manager updates
+- � Comprehensive testing and integration
+- 🎯 One-command releases
+
+See **[Release Pipeline Documentation](RELEASE_PIPELINE.md)** for detailed information.
 
 ## 📄 License
 
