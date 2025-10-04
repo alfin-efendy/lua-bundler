@@ -165,6 +165,38 @@ make run-copy ENTRY_FILE=your_script.lua
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
+## 🏷️ Automated Versioning & Releases
+
+This project uses **Semantic Release** with **Conventional Commits** for fully automated versioning and releases.
+
+### ✨ Key Features
+- 🤖 **Automatic version calculation** based on commit messages
+- 📋 **Generated changelogs** from conventional commits  
+- 🏷️ **Git tags** and **GitHub releases** created automatically
+- 📦 **Multi-platform binaries** built and attached to releases
+- 🔄 **Package managers** updated automatically (Homebrew, APT, Winget)
+
+### 📝 Commit Format
+All commits must follow [Conventional Commits](https://conventionalcommits.org/):
+
+```bash
+feat: add new bundling option     # Minor release (1.1.0)
+fix: resolve bundling crash       # Patch release (1.0.1)  
+feat!: change CLI argument format # Major release (2.0.0)
+docs: update README examples      # No release
+test: add integration tests       # No release
+chore: update dependencies        # No release
+```
+
+### 🚀 Release Process
+1. **Make changes** using conventional commit messages
+2. **Create PR** → Automated validation runs
+3. **Merge to main** → Release automatically triggered
+4. **New version** tagged and published with binaries
+5. **Package managers** updated automatically
+
+See **[VERSIONING.md](VERSIONING.md)** for detailed documentation.
+
 ## 📖 Documentation
 
 - **[Examples](example/)** - Sample projects and use cases  
