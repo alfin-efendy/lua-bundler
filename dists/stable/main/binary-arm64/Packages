@@ -1,0 +1,18 @@
+Package: lua-bundler
+Version: 1.0.0
+Architecture: arm64
+Maintainer: alfin-efendy <alfin-efendy@users.noreply.github.com>
+Depends: libc6 (>= 2.17)
+Filename: pool/main/l/lua-bundler/lua-bundler_1.0.0_arm64.deb
+Size: 4151238
+MD5sum: 4a7d69a8927517b94eea7e7633c41f0a
+SHA1: bafd7fe554a2f892e2370e81eb2ddfbb8a6140c8
+SHA256: 9bdb686fb1a7560f95b0b6caa3c497d600611469cdb5978d32c19d1c2319b84a
+Section: utils
+Priority: optional
+Homepage: https://github.com/alfin-efendy/lua-bundler
+Description: Lua script bundler for Roblox development
+ A tool for bundling Lua scripts with dependency resolution,
+ specifically designed for Roblox script development.
+ Supports both local requires and HTTP loadstring patterns.
+

@@ -6,4 +6,19 @@ Version: 1.0
 Architectures: amd64 arm64
 Components: main
 Description: APT repository for lua-bundler and other packages
-Date: Sat, 04 Oct 2025 05:01:40 +0000
+Date: Sat, 04 Oct 2025 05:19:27 +0000
+MD5Sum:
+5de1ecff67eb137e9e23ea8d38b4559c   main/binary-amd64/Packages
+20a1c5a25ab304693e6cd838996eefa4   main/binary-amd64/Packages.gz
+67591124e656557f6cfc31977dc84cfe   main/binary-arm64/Packages
+da4bc25460180212ba31916292121c45   main/binary-arm64/Packages.gz
+SHA1:
+24aa40bc4ae7e053b6aeedda9ce204488af9a3b9   main/binary-amd64/Packages
+360b75a9ae938b94ba5ba181743d5640def770f4   main/binary-amd64/Packages.gz
+01a66a89b41f23c6bda47635d02856f1e29ddedc   main/binary-arm64/Packages
+346a768fd3345fa6e6e4ff6c7094062dbeed2255   main/binary-arm64/Packages.gz
+SHA256:
+52beb3505783ffd1324fe8ec211a334eb08d006f1056a1a10d114bd92982ef88   main/binary-amd64/Packages
+309f2b3562e8ca5614466b0dea635ca80c7effd0f10916bb1c336187271fc8d3   main/binary-amd64/Packages.gz
+e813a90b7d408d710628510eea161b5fbe9373841de15e36e18a6f8287ecb738   main/binary-arm64/Packages
+8134de83c4b132c65552968ac5b1e1e30b4af58ee1327dea0d9a7972591bf290   main/binary-arm64/Packages.gz
