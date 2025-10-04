@@ -23,8 +23,6 @@ jobs:
       - name: Install commitlint
         run: |
           npm install --save-dev @commitlint/config-conventional @commitlint/cli
-          # Copy our custom config
-          cp commitlint.config.js ./commitlint.config.js
 
       - name: Validate current commit (last commit)
         if: github.event_name == 'push'
