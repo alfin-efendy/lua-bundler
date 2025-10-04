@@ -33,13 +33,12 @@ winget install alfin-efendy.lua-bundler
 
 #### APT (Ubuntu/Debian)
 ```bash
-# Add repository
-curl -fsSL https://apt.example.com/gpg | sudo apt-key add -
-echo "deb https://apt.example.com stable main" | sudo tee /etc/apt/sources.list.d/lua-bundler.list
+# Quick install (recommended)
+curl -fsSL https://alfin-efendy.github.io/lua-bundler/install.sh | sudo bash
 
-# Install
-sudo apt update
-sudo apt install lua-bundler
+# Or manual installation
+echo "deb [trusted=yes] https://alfin-efendy.github.io/lua-bundler/ stable main" | sudo tee /etc/apt/sources.list.d/lua-bundler.list
+sudo apt update && sudo apt install lua-bundler
 ```
 
 #### Docker
@@ -151,7 +150,6 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ## 📖 Documentation
 
-- **[API Documentation](docs/API.md)** - Detailed usage and options
 - **[Examples](example/)** - Sample projects and use cases  
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute
 - **[Changelog](CHANGELOG.md)** - Release notes and changes

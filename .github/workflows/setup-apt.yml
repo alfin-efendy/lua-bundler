@@ -1,0 +1,311 @@
+name: Setup APT Repository
+
+on:
+  workflow_dispatch:
+  
+env:
+  BINARY_NAME: lua-bundler
+
+jobs:
+  setup-repository:
+    name: Initialize APT Repository on GitHub Pages
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Create gh-pages branch
+      run: |
+        # Check if gh-pages branch exists
+        if git ls-remote --exit-code --heads origin gh-pages; then
+          echo "gh-pages branch already exists"
+          git checkout gh-pages
+        else
+          echo "Creating gh-pages branch"
+          git checkout --orphan gh-pages
+          git rm -rf .
+        fi
+
+    - name: Setup initial APT repository structure
+      run: |
+        # Create directory structure
+        mkdir -p {dists/stable/main/binary-amd64,dists/stable/main/binary-arm64,pool/main/l/${{ env.BINARY_NAME }}}
+        
+        # Create initial Release file
+        cat > dists/stable/Release << EOF
+        Origin: ${{ github.repository_owner }}
+        Label: ${{ github.repository_owner }}'s APT Repository
+        Suite: stable
+        Codename: stable
+        Version: 1.0
+        Architectures: amd64 arm64
+        Components: main
+        Description: APT repository for ${{ env.BINARY_NAME }} and other packages
+        Date: $(date -Ru)
+        EOF
+
+        # Create empty Packages files
+        touch dists/stable/main/binary-amd64/Packages
+        touch dists/stable/main/binary-arm64/Packages
+        gzip -k dists/stable/main/binary-amd64/Packages
+        gzip -k dists/stable/main/binary-arm64/Packages
+
+        # Create initial index page
+        cat > index.html << 'EOF'
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>lua-bundler APT Repository</title>
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    max-width: 800px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    line-height: 1.6;
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 40px;
+                    padding: 20px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    border-radius: 10px;
+                }
+                .install-box {
+                    background: #f6f8fa;
+                    padding: 20px;
+                    border-radius: 6px;
+                    margin: 20px 0;
+                    border-left: 4px solid #0366d6;
+                }
+                .install-box code {
+                    background: #fff;
+                    padding: 8px 12px;
+                    border-radius: 3px;
+                    font-family: 'SF Mono', Consolas, monospace;
+                    display: block;
+                    margin: 10px 0;
+                    border: 1px solid #e1e4e8;
+                    overflow-x: auto;
+                }
+                .package-list {
+                    margin: 20px 0;
+                }
+                .package-item {
+                    padding: 20px;
+                    border: 1px solid #e1e4e8;
+                    border-radius: 6px;
+                    margin: 10px 0;
+                    background: white;
+                }
+                .badge {
+                    background: #28a745;
+                    color: white;
+                    padding: 4px 8px;
+                    border-radius: 12px;
+                    font-size: 12px;
+                    font-weight: bold;
+                }
+                .warning {
+                    background: #fff3cd;
+                    border: 1px solid #ffeaa7;
+                    padding: 15px;
+                    border-radius: 6px;
+                    margin: 20px 0;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>🏗️ lua-bundler APT Repository</h1>
+                <p>Debian/Ubuntu packages for Lua script bundler</p>
+            </div>
+
+            <div class="warning">
+                <strong>⚠️ Repository Setup</strong><br>
+                This APT repository is being initialized. Packages will be available after the first release.
+            </div>
+
+            <div class="install-box">
+                <h2>📦 Installation Instructions</h2>
+                
+                <p><strong>Step 1:</strong> Add the repository to your sources</p>
+                <code>echo "deb [trusted=yes] https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ stable main" | sudo tee /etc/apt/sources.list.d/lua-bundler.list</code>
+                
+                <p><strong>Step 2:</strong> Update your package list</p>
+                <code>sudo apt update</code>
+                
+                <p><strong>Step 3:</strong> Install lua-bundler</p>
+                <code>sudo apt install lua-bundler</code>
+                
+                <p><strong>Alternative one-liner:</strong></p>
+                <code>curl -fsSL https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/install.sh | sudo bash</code>
+            </div>
+
+            <div class="package-list">
+                <h2>📋 Available Packages</h2>
+                <div class="package-item">
+                    <h3>lua-bundler <span class="badge">Coming Soon</span></h3>
+                    <p><strong>Description:</strong> Lua script bundler for Roblox development</p>
+                    <p><strong>Features:</strong></p>
+                    <ul>
+                        <li>🔄 Automatic dependency resolution</li>
+                        <li>🌐 HTTP loadstring support</li>
+                        <li>📁 Complex path handling</li>
+                        <li>🚀 Release mode optimization</li>
+                        <li>📋 Clipboard integration</li>
+                    </ul>
+                    <p><strong>Supported Architectures:</strong> amd64, arm64</p>
+                </div>
+            </div>
+
+            <div class="install-box">
+                <h2>🔗 Links & Resources</h2>
+                <ul>
+                    <li><a href="https://github.com/${{ github.repository }}" target="_blank">📖 GitHub Repository</a></li>
+                    <li><a href="https://github.com/${{ github.repository }}/releases" target="_blank">📦 Releases</a></li>
+                    <li><a href="https://github.com/${{ github.repository }}/issues" target="_blank">🐛 Report Issues</a></li>
+                    <li><a href="https://github.com/${{ github.repository }}/blob/main/README.md" target="_blank">📚 Documentation</a></li>
+                </ul>
+            </div>
+
+            <div class="install-box">
+                <h2>📂 Repository Structure</h2>
+                <ul>
+                    <li><a href="dists/">dists/</a> - Distribution metadata and package lists</li>
+                    <li><a href="pool/">pool/</a> - Actual package (.deb) files</li>
+                    <li><a href="install.sh">install.sh</a> - Quick installation script</li>
+                </ul>
+            </div>
+
+            <div class="install-box">
+                <h2>❓ Troubleshooting</h2>
+                <p><strong>GPG/Key Errors:</strong> This repository uses <code>[trusted=yes]</code> to avoid GPG key requirements for simplicity.</p>
+                <p><strong>Package Not Found:</strong> Make sure you've run <code>sudo apt update</code> after adding the repository.</p>
+                <p><strong>Architecture Issues:</strong> We support both amd64 and arm64. Check with <code>dpkg --print-architecture</code>.</p>
+            </div>
+
+            <footer style="text-align: center; margin-top: 40px; padding: 20px; color: #666; border-top: 1px solid #e1e4e8;">
+                <p><strong>lua-bundler APT Repository</strong></p>
+                <p>Automatically maintained by GitHub Actions</p>
+                <p>Last updated: <span id="lastUpdate">Repository initialization</span></p>
+            </footer>
+        </body>
+        </html>
+        EOF
+
+        # Create install script
+        cat > install.sh << 'EOF'
+        #!/bin/bash
+        set -e
+
+        echo "🏗️ Installing lua-bundler from APT repository..."
+
+        # Check if running as root
+        if [[ $EUID -eq 0 ]]; then
+            SUDO=""
+        else
+            SUDO="sudo"
+        fi
+
+        # Add repository
+        echo "📦 Adding lua-bundler APT repository..."
+        echo "deb [trusted=yes] https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ stable main" | $SUDO tee /etc/apt/sources.list.d/lua-bundler.list
+
+        # Update package list
+        echo "🔄 Updating package list..."
+        $SUDO apt update
+
+        # Install package
+        echo "⬇️ Installing lua-bundler..."
+        $SUDO apt install -y lua-bundler
+
+        echo "✅ lua-bundler installed successfully!"
+        echo ""
+        echo "Usage: lua-bundler -entry main.lua -output bundle.lua"
+        echo "Help:  lua-bundler -help"
+        EOF
+
+        chmod +x install.sh
+
+        # Create .nojekyll to prevent Jekyll processing
+        touch .nojekyll
+
+        # Create README for the repository
+        cat > README.md << EOF
+        # lua-bundler APT Repository
+        
+        This is the APT repository for lua-bundler, hosted on GitHub Pages.
+        
+        ## Installation
+        
+        \`\`\`bash
+        echo "deb [trusted=yes] https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ stable main" | sudo tee /etc/apt/sources.list.d/lua-bundler.list
+        sudo apt update
+        sudo apt install lua-bundler
+        \`\`\`
+        
+        ## Quick Install
+        
+        \`\`\`bash
+        curl -fsSL https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/install.sh | sudo bash
+        \`\`\`
+        
+        ## Repository Structure
+        
+        - \`dists/\` - APT repository metadata
+        - \`pool/\` - Package files (.deb)
+        - \`index.html\` - Repository homepage
+        - \`install.sh\` - Quick installation script
+        
+        This repository is automatically maintained by GitHub Actions.
+        EOF
+
+    - name: Commit initial structure
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add -A
+        git commit -m "Initialize APT repository structure" || echo "Nothing to commit"
+        git push origin gh-pages
+
+    - name: Enable GitHub Pages
+      uses: actions/github-script@v7
+      with:
+        script: |
+          try {
+            const response = await github.rest.repos.createPagesSite({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              source: {
+                branch: 'gh-pages',
+                path: '/'
+              }
+            });
+            console.log('GitHub Pages enabled successfully');
+          } catch (error) {
+            if (error.status === 409) {
+              console.log('GitHub Pages already enabled');
+            } else {
+              console.log('Error enabling GitHub Pages:', error.message);
+            }
+          }
+
+    - name: Summary
+      run: |
+        echo "## 🏗️ APT Repository Initialized" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Repository URL:** https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Installation Command:**" >> $GITHUB_STEP_SUMMARY
+        echo '```bash' >> $GITHUB_STEP_SUMMARY
+        echo 'curl -fsSL https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/install.sh | sudo bash' >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+        echo "1. Create a release to populate the repository with packages" >> $GITHUB_STEP_SUMMARY
+        echo "2. The APT repository will be automatically updated" >> $GITHUB_STEP_SUMMARY
+        echo "3. Users can install packages using the commands above" >> $GITHUB_STEP_SUMMARY
