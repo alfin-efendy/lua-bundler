@@ -58,32 +58,10 @@ jobs:
         echo "win_amd64_sha256=$WIN_AMD64_SHA256" >> $GITHUB_OUTPUT
         echo "win_arm64_sha256=$WIN_ARM64_SHA256" >> $GITHUB_OUTPUT
 
-    - name: Fork and clone winget-pkgs repository
-      run: |
-        # Install gh CLI if not available
-        if ! command -v gh &> /dev/null; then
-          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-          sudo apt update
-          sudo apt install gh -y
-        fi
-        
-        # Authenticate with GitHub CLI
-        echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
-        
-        # Fork winget-pkgs repository if not already forked
-        gh repo fork microsoft/winget-pkgs --clone=false || echo "Fork already exists"
-        
-        # Clone our fork
-        git clone https://github.com/${{ github.actor }}/winget-pkgs.git
-        cd winget-pkgs
-
     - name: Create Winget manifest files
       run: |
-        cd winget-pkgs
-        
-        # Create directory structure
-        MANIFEST_DIR="manifests/a/alfin-efendy/${{ env.BINARY_NAME }}/${{ steps.release_info.outputs.version }}"
+        # Create directory structure for manifests
+        MANIFEST_DIR="winget-manifests/manifests/a/alfin-efendy/${{ env.BINARY_NAME }}/${{ steps.release_info.outputs.version }}"
         mkdir -p "$MANIFEST_DIR"
         
         # Create version manifest
@@ -151,63 +129,114 @@ jobs:
         ManifestVersion: 1.5.0
         EOF
 
-    - name: Commit and create pull request
-      run: |
-        cd winget-pkgs
-        
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        
-        # Create new branch for this update
-        BRANCH_NAME="update-lua-bundler-${{ steps.release_info.outputs.version }}"
-        git checkout -b "$BRANCH_NAME"
-        
-        # Add and commit changes
-        git add .
-        git commit -m "Add ${{ env.PACKAGE_ID }} version ${{ steps.release_info.outputs.version }}"
-        
-        # Push to our fork
-        git push origin "$BRANCH_NAME"
-        
-        # Create pull request to microsoft/winget-pkgs
-        gh pr create \
-          --repo microsoft/winget-pkgs \
-          --title "Add ${{ env.PACKAGE_ID }} version ${{ steps.release_info.outputs.version }}" \
-          --body "This PR adds ${{ env.BINARY_NAME }} version ${{ steps.release_info.outputs.version }} to the Windows Package Manager Community Repository.
+    - name: Upload manifest artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: winget-manifests-${{ steps.release_info.outputs.version }}
+        path: winget-manifests/
+        retention-days: 90
 
+    - name: Create submission instructions
+      run: |
+        cat > winget-manifests/SUBMIT.md << 'EOF'
+        # 📦 Winget Package Submission Instructions
+        
+        ## Automated Submission (Recommended)
+        
+        Use the official WinGet CLI tool to submit:
+        
+        ```powershell
+        # Install wingetcreate if not already installed
+        winget install wingetcreate
+        
+        # Submit the package (this will create a PR automatically)
+        wingetcreate submit \
+          --token YOUR_GITHUB_TOKEN \
+          manifests/a/alfin-efendy/${{ env.BINARY_NAME }}/${{ steps.release_info.outputs.version }}/
+        ```
+        
+        ## Manual Submission
+        
+        1. Fork [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs)
+        
+        2. Clone your fork:
+           ```bash
+           git clone https://github.com/YOUR_USERNAME/winget-pkgs.git
+           cd winget-pkgs
+           ```
+        
+        3. Create a new branch:
+           ```bash
+           git checkout -b add-lua-bundler-${{ steps.release_info.outputs.version }}
+           ```
+        
+        4. Copy the manifest files from this artifact to your clone:
+           ```bash
+           cp -r path/to/manifests/a/alfin-efendy/${{ env.BINARY_NAME }}/${{ steps.release_info.outputs.version }} \
+                 manifests/a/alfin-efendy/${{ env.BINARY_NAME }}/
+           ```
+        
+        5. Commit and push:
+           ```bash
+           git add .
+           git commit -m "Add ${{ env.PACKAGE_ID }} version ${{ steps.release_info.outputs.version }}"
+           git push origin add-lua-bundler-${{ steps.release_info.outputs.version }}
+           ```
+        
+        6. Create a Pull Request on GitHub to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs)
+        
         ## Package Information
-        - **Package**: ${{ env.PACKAGE_ID }}
+        
+        - **Package ID**: ${{ env.PACKAGE_ID }}
         - **Version**: ${{ steps.release_info.outputs.version }}
-        - **Publisher**: ${{ github.repository_owner }}
-        - **Repository**: https://github.com/${{ github.repository }}
+        - **Release**: https://github.com/${{ github.repository }}/releases/tag/${{ steps.release_info.outputs.tag }}
         
-        ## Verification
-        - [x] Manifests validated
-        - [x] Package tested locally
-        - [x] Checksums verified
+        ## Checksums
         
-        ## Release Notes
-        See: https://github.com/${{ github.repository }}/releases/tag/${{ steps.release_info.outputs.tag }}" \
-          --head "${{ github.actor }}:$BRANCH_NAME" || echo "PR creation failed or already exists"
+        - **Windows AMD64**: ${{ steps.windows_assets.outputs.win_amd64_sha256 }}
+        - **Windows ARM64**: ${{ steps.windows_assets.outputs.win_arm64_sha256 }}
+        
+        EOF
 
     - name: Summary
       run: |
-        echo "## 📦 Winget Package Updated!" >> $GITHUB_STEP_SUMMARY
+        echo "## 📦 Winget Manifests Generated!" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 📋 Details" >> $GITHUB_STEP_SUMMARY
+        echo "### 📋 Package Details" >> $GITHUB_STEP_SUMMARY
         echo "- **Package ID**: ${{ env.PACKAGE_ID }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Version**: ${{ steps.release_info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Tag**: ${{ steps.release_info.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🔄 Status" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ **Manifest created** and submitted to microsoft/winget-pkgs" >> $GITHUB_STEP_SUMMARY
-        echo "- ⏳ **Awaiting review** by Winget maintainers" >> $GITHUB_STEP_SUMMARY
+        echo "### ✅ Generated Files" >> $GITHUB_STEP_SUMMARY
+        echo "- \`alfin-efendy.${{ env.BINARY_NAME }}.yaml\` - Version manifest" >> $GITHUB_STEP_SUMMARY
+        echo "- \`alfin-efendy.${{ env.BINARY_NAME }}.locale.en-US.yaml\` - Locale manifest" >> $GITHUB_STEP_SUMMARY
+        echo "- \`alfin-efendy.${{ env.BINARY_NAME }}.installer.yaml\` - Installer manifest" >> $GITHUB_STEP_SUMMARY
+        echo "- \`SUBMIT.md\` - Submission instructions" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🚀 Installation (After Approval)" >> $GITHUB_STEP_SUMMARY
-        echo '```cmd' >> $GITHUB_STEP_SUMMARY
-        echo "winget install ${{ env.PACKAGE_ID }}" >> $GITHUB_STEP_SUMMARY
+        echo "### 📥 Download Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "The manifest files have been uploaded as workflow artifacts." >> $GITHUB_STEP_SUMMARY
+        echo "Download them from the **Artifacts** section above." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🚀 Next Steps" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Option 1: Automated Submission (Recommended)**" >> $GITHUB_STEP_SUMMARY
+        echo '```powershell' >> $GITHUB_STEP_SUMMARY
+        echo "wingetcreate submit --token YOUR_TOKEN manifests/..." >> $GITHUB_STEP_SUMMARY
         echo '```' >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
+        echo "**Option 2: Manual Submission**" >> $GITHUB_STEP_SUMMARY
+        echo "1. Download the artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "2. Fork [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs)" >> $GITHUB_STEP_SUMMARY
+        echo "3. Copy manifest files to your fork" >> $GITHUB_STEP_SUMMARY
+        echo "4. Create a Pull Request" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📖 See \`SUBMIT.md\` in the artifacts for detailed instructions." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔐 Checksums" >> $GITHUB_STEP_SUMMARY
+        echo "- **Windows AMD64**: \`${{ steps.windows_assets.outputs.win_amd64_sha256 }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Windows ARM64**: \`${{ steps.windows_assets.outputs.win_arm64_sha256 }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔗 Useful Links" >> $GITHUB_STEP_SUMMARY
         echo "- [Microsoft Winget Packages](https://github.com/microsoft/winget-pkgs)" >> $GITHUB_STEP_SUMMARY
-        echo "- [Pull Requests](https://github.com/microsoft/winget-pkgs/pulls?q=is%3Apr+${{ env.BINARY_NAME }})" >> $GITHUB_STEP_SUMMARY
+        echo "- [Winget Create Tool](https://github.com/microsoft/winget-create)" >> $GITHUB_STEP_SUMMARY
+        echo "- [Submission Guidelines](https://github.com/microsoft/winget-pkgs/blob/master/CONTRIBUTING.md)" >> $GITHUB_STEP_SUMMARY
