@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/alfin-efendy/lua-bundler/bundler"
+	"github.com/alfin-efendy/lua-bundler/internal/bundler"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,6 +28,7 @@ func TestRootCmd_Flags(t *testing.T) {
 		{"entry", "e"},
 		{"output", "o"},
 		{"release", "r"},
+		{"obfuscate", "O"},
 		{"verbose", "v"},
 	}
 

@@ -50,30 +50,67 @@ jobs:
       with:
         go-version: '1.24'
 
-    - name: Get or build binaries
+    - name: Download release binaries
       run: |
         if [ "${{ github.event_name }}" = "release" ] && [ -n "${{ github.event.release.tag_name }}" ]; then
-          echo "Downloading release binaries..."
-          # Download Linux binaries from release
-          curl -L -o ${{ env.BINARY_NAME }}-amd64 \
-            "https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/${{ env.BINARY_NAME }}-linux-amd64" || {
-            echo "Failed to download from release, building locally..."
-            GOOS=linux GOARCH=amd64 go build -o ${{ env.BINARY_NAME }}-amd64 .
-          }
-          curl -L -o ${{ env.BINARY_NAME }}-arm64 \
-            "https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/${{ env.BINARY_NAME }}-linux-arm64" || {
-            echo "Failed to download from release, building locally..."
-            GOOS=linux GOARCH=arm64 go build -o ${{ env.BINARY_NAME }}-arm64 .
-          }
+          echo "📥 Downloading release binaries from tag: ${{ github.event.release.tag_name }}"
+          TAG="${{ github.event.release.tag_name }}"
+          
+          # Download Linux AMD64 binary from release
+          echo "Downloading AMD64 binary..."
+          if ! curl -f -L -o ${{ env.BINARY_NAME }}-amd64 \
+            "https://github.com/${{ github.repository }}/releases/download/${TAG}/${{ env.BINARY_NAME }}-linux-amd64"; then
+            echo "❌ ERROR: Failed to download AMD64 binary from release!"
+            echo "Please ensure the release has ${{ env.BINARY_NAME }}-linux-amd64 asset"
+            exit 1
+          fi
+          
+          # Download Linux ARM64 binary from release
+          echo "Downloading ARM64 binary..."
+          if ! curl -f -L -o ${{ env.BINARY_NAME }}-arm64 \
+            "https://github.com/${{ github.repository }}/releases/download/${TAG}/${{ env.BINARY_NAME }}-linux-arm64"; then
+            echo "❌ ERROR: Failed to download ARM64 binary from release!"
+            echo "Please ensure the release has ${{ env.BINARY_NAME }}-linux-arm64 asset"
+            exit 1
+          fi
+          
+          echo "✅ Successfully downloaded both binaries"
         else
-          echo "Building binaries locally..."
+          echo "⚠️ Not triggered by release, building binaries locally..."
           # Build locally for manual workflow dispatch
-          GOOS=linux GOARCH=amd64 go build -o ${{ env.BINARY_NAME }}-amd64 .
-          GOOS=linux GOARCH=arm64 go build -o ${{ env.BINARY_NAME }}-arm64 .
+          echo "Building AMD64..."
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ${{ env.BINARY_NAME }}-amd64 .
+          echo "Building ARM64..."
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ${{ env.BINARY_NAME }}-arm64 .
         fi
         
+        # Verify binaries exist and are valid
+        echo ""
+        echo "🔍 Verifying downloaded binaries..."
+        for binary in ${{ env.BINARY_NAME }}-amd64 ${{ env.BINARY_NAME }}-arm64; do
+          if [ ! -f "$binary" ]; then
+            echo "❌ ERROR: Binary $binary does not exist!"
+            exit 1
+          fi
+          
+          SIZE=$(stat -c%s "$binary" 2>/dev/null || stat -f%z "$binary" 2>/dev/null || echo "0")
+          SIZE_MB=$(echo "scale=2; $SIZE / 1024 / 1024" | bc)
+          
+          if [ "$SIZE" -lt 100000 ]; then
+            echo "❌ ERROR: Binary $binary is too small ($SIZE bytes)!"
+            echo "First 100 bytes of file:"
+            head -c 100 "$binary" | od -c
+            exit 1
+          fi
+          
+          echo "✅ $binary: ${SIZE_MB} MB ($SIZE bytes)"
+          file "$binary"
+        done
+        
         chmod +x ${{ env.BINARY_NAME }}-*
-        ls -la ${{ env.BINARY_NAME }}-*
+        echo ""
+        echo "📦 Final binary list:"
+        ls -lh ${{ env.BINARY_NAME }}-*
 
     - name: Get version
       id: version
@@ -98,19 +135,16 @@ jobs:
 
     - name: Create AMD64 Debian package
       run: |
-        # Debug: Print version information
-        echo "Event name: ${{ github.event_name }}"
-        echo "Release tag: ${{ github.event.release.tag_name }}"
-        echo "Version from step: ${{ steps.version.outputs.version }}"
-        
         VERSION="${{ steps.version.outputs.version }}"
+        echo "📦 Creating AMD64 Debian package for version: $VERSION"
+        
         if [ -z "$VERSION" ]; then
           echo "❌ ERROR: Version is empty!"
           exit 1
         fi
         
         PKG_DIR="${{ env.BINARY_NAME }}_${VERSION}_amd64"
-        echo "Creating package directory: $PKG_DIR"
+        echo "Package directory: $PKG_DIR"
         
         mkdir -p "$PKG_DIR/DEBIAN"
         mkdir -p "$PKG_DIR/usr/bin"
@@ -118,42 +152,59 @@ jobs:
         mkdir -p "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}"
 
         # Copy AMD64 binary
+        echo "Copying binary..."
         cp ${{ env.BINARY_NAME }}-amd64 "$PKG_DIR/usr/bin/${{ env.BINARY_NAME }}"
+        chmod 755 "$PKG_DIR/usr/bin/${{ env.BINARY_NAME }}"
+        
+        # Verify copied binary
+        COPIED_SIZE=$(stat -c%s "$PKG_DIR/usr/bin/${{ env.BINARY_NAME }}")
+        COPIED_SIZE_MB=$(echo "scale=2; $COPIED_SIZE / 1024 / 1024" | bc)
+        echo "Copied binary size: ${COPIED_SIZE_MB} MB"
+        
+        if [ "$COPIED_SIZE" -lt 100000 ]; then
+          echo "❌ ERROR: Copied binary is suspiciously small!"
+          exit 1
+        fi
 
-        # Create control file
-        cat > "$PKG_DIR/DEBIAN/control" << EOF
-        Package: ${{ env.BINARY_NAME }}
-        Version: ${{ steps.version.outputs.version }}
+        # Create control file (no leading whitespace for heredoc)
+        cat > "$PKG_DIR/DEBIAN/control" << 'CONTROL_EOF'
+        Package: lua-bundler
+        Version: VERSION_PLACEHOLDER
         Section: utils
         Priority: optional
         Architecture: amd64
         Depends: libc6 (>= 2.17)
-        Maintainer: ${{ github.repository_owner }} <${{ github.repository_owner }}@users.noreply.github.com>
+        Maintainer: MAINTAINER_PLACEHOLDER
         Description: Lua script bundler for Roblox development
-         A tool for bundling Lua scripts with dependency resolution,
-         specifically designed for Roblox script development.
-         Supports both local requires and HTTP loadstring patterns.
-        Homepage: https://github.com/${{ github.repository }}
-        EOF
+         A powerful tool for bundling Lua scripts with automatic dependency resolution.
+         Specifically designed for Roblox script development with support for both
+         local requires and HTTP loadstring patterns.
+        Homepage: HOMEPAGE_PLACEHOLDER
+        CONTROL_EOF
+
+        # Replace placeholders
+        sed -i "s|VERSION_PLACEHOLDER|${{ steps.version.outputs.version }}|g" "$PKG_DIR/DEBIAN/control"
+        sed -i "s|MAINTAINER_PLACEHOLDER|${{ github.repository_owner }} <${{ github.repository_owner }}@users.noreply.github.com>|g" "$PKG_DIR/DEBIAN/control"
+        sed -i "s|HOMEPAGE_PLACEHOLDER|https://github.com/${{ github.repository }}|g" "$PKG_DIR/DEBIAN/control"
 
         # Create postinst script
-        cat > "$PKG_DIR/DEBIAN/postinst" << 'EOF'
+        cat > "$PKG_DIR/DEBIAN/postinst" << 'POSTINST_EOF'
         #!/bin/bash
         set -e
-        chmod +x /usr/bin/${{ env.BINARY_NAME }}
-        echo "lua-bundler installed successfully!"
-        echo "Usage: lua-bundler -entry main.lua -output bundle.lua"
-        EOF
+        chmod +x /usr/bin/lua-bundler
+        echo "✅ lua-bundler installed successfully!"
+        echo "Usage: lua-bundler --entry main.lua --output bundle.lua"
+        POSTINST_EOF
         chmod 755 "$PKG_DIR/DEBIAN/postinst"
 
         # Create copyright file
-        cat > "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/copyright" << EOF
+        cat > "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/copyright" << 'COPYRIGHT_EOF'
         Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-        Upstream-Name: ${{ env.BINARY_NAME }}
-        Source: https://github.com/${{ github.repository }}
-
+        Upstream-Name: lua-bundler
+        Source: SOURCE_PLACEHOLDER
+        
         Files: *
-        Copyright: $(date +%Y) ${{ github.repository_owner }}
+        Copyright: YEAR_PLACEHOLDER OWNER_PLACEHOLDER
         License: MIT
          Permission is hereby granted, free of charge, to any person obtaining a
          copy of this software and associated documentation files (the "Software"),
@@ -164,29 +215,66 @@ jobs:
          .
          The above copyright notice and this permission notice shall be included
          in all copies or substantial portions of the Software.
-        EOF
+        COPYRIGHT_EOF
+
+        # Replace placeholders in copyright
+        sed -i "s|SOURCE_PLACEHOLDER|https://github.com/${{ github.repository }}|g" "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/copyright"
+        sed -i "s|YEAR_PLACEHOLDER|$(date +%Y)|g" "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/copyright"
+        sed -i "s|OWNER_PLACEHOLDER|${{ github.repository_owner }}|g" "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/copyright"
 
         # Create changelog
-        cat > "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/changelog.Debian" << EOF
-        ${{ env.BINARY_NAME }} (${{ steps.version.outputs.version }}) stable; urgency=medium
+        cat > "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/changelog.Debian" << 'CHANGELOG_EOF'
+        lua-bundler (VERSION_PLACEHOLDER) stable; urgency=medium
+        
+          * Release VERSION_PLACEHOLDER
+          * See RELEASE_URL_PLACEHOLDER
+        
+         -- MAINTAINER_PLACEHOLDER  DATE_PLACEHOLDER
+        CHANGELOG_EOF
 
-          * Release ${{ steps.version.outputs.version }}
-          * See https://github.com/${{ github.repository }}/releases/tag/${{ github.event.release.tag_name }}
-
-         -- ${{ github.repository_owner }} <${{ github.repository_owner }}@users.noreply.github.com>  $(date -R)
-        EOF
+        # Replace placeholders in changelog
+        sed -i "s|VERSION_PLACEHOLDER|${{ steps.version.outputs.version }}|g" "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/changelog.Debian"
+        sed -i "s|RELEASE_URL_PLACEHOLDER|https://github.com/${{ github.repository }}/releases/tag/${{ github.event.release.tag_name }}|g" "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/changelog.Debian"
+        sed -i "s|MAINTAINER_PLACEHOLDER|${{ github.repository_owner }} <${{ github.repository_owner }}@users.noreply.github.com>|g" "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/changelog.Debian"
+        sed -i "s|DATE_PLACEHOLDER|$(date -R)|g" "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/changelog.Debian"
 
         # Compress changelog
         gzip -9 "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/changelog.Debian"
 
+        echo ""
+        echo "📋 Package contents:"
+        du -sh "$PKG_DIR"
+        find "$PKG_DIR" -type f -exec ls -lh {} \;
+
         # Build AMD64 package
+        echo ""
+        echo "🔨 Building .deb package..."
         dpkg-deb --build --root-owner-group "$PKG_DIR"
+        
+        # Verify package
+        DEB_FILE="${{ env.BINARY_NAME }}_${VERSION}_amd64.deb"
+        if [ ! -f "$DEB_FILE" ]; then
+          echo "❌ ERROR: .deb file was not created!"
+          exit 1
+        fi
+        
+        DEB_SIZE=$(stat -c%s "$DEB_FILE")
+        DEB_SIZE_MB=$(echo "scale=2; $DEB_SIZE / 1024 / 1024" | bc)
+        
+        if [ "$DEB_SIZE" -lt 50000 ]; then
+          echo "❌ ERROR: .deb package is too small ($DEB_SIZE bytes)!"
+          dpkg-deb --info "$DEB_FILE"
+          dpkg-deb --contents "$DEB_FILE"
+          exit 1
+        fi
+        
+        echo "✅ AMD64 package created: ${DEB_SIZE_MB} MB"
+        dpkg-deb --info "$DEB_FILE"
 
     - name: Create ARM64 Debian package
       run: |
-        # Debug: Verify version again
         VERSION="${{ steps.version.outputs.version }}"
-        echo "ARM64 package version: $VERSION"
+        echo "📦 Creating ARM64 Debian package for version: $VERSION"
         
         if [ -z "$VERSION" ]; then
           echo "❌ ERROR: Version is empty for ARM64 package!"
@@ -194,55 +282,129 @@ jobs:
         fi
         
         PKG_DIR="${{ env.BINARY_NAME }}_${VERSION}_arm64"
-        echo "Creating ARM64 package directory: $PKG_DIR"
+        echo "Package directory: $PKG_DIR"
         
         mkdir -p "$PKG_DIR/DEBIAN"
         mkdir -p "$PKG_DIR/usr/bin"
         mkdir -p "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}"
 
         # Copy ARM64 binary
+        echo "Copying binary..."
         cp ${{ env.BINARY_NAME }}-arm64 "$PKG_DIR/usr/bin/${{ env.BINARY_NAME }}"
+        chmod 755 "$PKG_DIR/usr/bin/${{ env.BINARY_NAME }}"
+        
+        # Verify copied binary
+        COPIED_SIZE=$(stat -c%s "$PKG_DIR/usr/bin/${{ env.BINARY_NAME }}")
+        COPIED_SIZE_MB=$(echo "scale=2; $COPIED_SIZE / 1024 / 1024" | bc)
+        echo "Copied binary size: ${COPIED_SIZE_MB} MB"
+        
+        if [ "$COPIED_SIZE" -lt 100000 ]; then
+          echo "❌ ERROR: Copied ARM64 binary is suspiciously small!"
+          exit 1
+        fi
 
         # Create control file (ARM64)
-        cat > "$PKG_DIR/DEBIAN/control" << EOF
-        Package: ${{ env.BINARY_NAME }}
-        Version: ${{ steps.version.outputs.version }}
+        cat > "$PKG_DIR/DEBIAN/control" << 'CONTROL_EOF'
+        Package: lua-bundler
+        Version: VERSION_PLACEHOLDER
         Section: utils
         Priority: optional
         Architecture: arm64
         Depends: libc6 (>= 2.17)
-        Maintainer: ${{ github.repository_owner }} <${{ github.repository_owner }}@users.noreply.github.com>
+        Maintainer: MAINTAINER_PLACEHOLDER
         Description: Lua script bundler for Roblox development
-         A tool for bundling Lua scripts with dependency resolution,
-         specifically designed for Roblox script development.
-         Supports both local requires and HTTP loadstring patterns.
-        Homepage: https://github.com/${{ github.repository }}
-        EOF
+         A powerful tool for bundling Lua scripts with automatic dependency resolution.
+         Specifically designed for Roblox script development with support for both
+         local requires and HTTP loadstring patterns.
+        Homepage: HOMEPAGE_PLACEHOLDER
+        CONTROL_EOF
+
+        # Replace placeholders
+        sed -i "s|VERSION_PLACEHOLDER|${{ steps.version.outputs.version }}|g" "$PKG_DIR/DEBIAN/control"
+        sed -i "s|MAINTAINER_PLACEHOLDER|${{ github.repository_owner }} <${{ github.repository_owner }}@users.noreply.github.com>|g" "$PKG_DIR/DEBIAN/control"
+        sed -i "s|HOMEPAGE_PLACEHOLDER|https://github.com/${{ github.repository }}|g" "$PKG_DIR/DEBIAN/control"
 
         # Create postinst script
-        cat > "$PKG_DIR/DEBIAN/postinst" << 'EOF'
+        cat > "$PKG_DIR/DEBIAN/postinst" << 'POSTINST_EOF'
         #!/bin/bash
         set -e
-        chmod +x /usr/bin/${{ env.BINARY_NAME }}
-        echo "lua-bundler installed successfully!"
-        echo "Usage: lua-bundler -entry main.lua -output bundle.lua"
-        EOF
+        chmod +x /usr/bin/lua-bundler
+        echo "✅ lua-bundler installed successfully!"
+        echo "Usage: lua-bundler --entry main.lua --output bundle.lua"
+        POSTINST_EOF
         chmod 755 "$PKG_DIR/DEBIAN/postinst"
 
-        # Copy documentation
+        # Copy documentation from AMD64 package
         cp -r ${{ env.BINARY_NAME }}_${{ steps.version.outputs.version }}_amd64/usr/share/doc/${{ env.BINARY_NAME }}/* \
            "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/"
 
+        echo ""
+        echo "📋 Package contents:"
+        du -sh "$PKG_DIR"
+        find "$PKG_DIR" -type f -exec ls -lh {} \;
+
         # Build ARM64 package
+        echo ""
+        echo "🔨 Building ARM64 .deb package..."
         dpkg-deb --build --root-owner-group "$PKG_DIR"
+        
+        # Verify package
+        DEB_FILE="${{ env.BINARY_NAME }}_${VERSION}_arm64.deb"
+        if [ ! -f "$DEB_FILE" ]; then
+          echo "❌ ERROR: ARM64 .deb file was not created!"
+          exit 1
+        fi
+        
+        DEB_SIZE=$(stat -c%s "$DEB_FILE")
+        DEB_SIZE_MB=$(echo "scale=2; $DEB_SIZE / 1024 / 1024" | bc)
+        
+        if [ "$DEB_SIZE" -lt 50000 ]; then
+          echo "❌ ERROR: ARM64 .deb package is too small ($DEB_SIZE bytes)!"
+          dpkg-deb --info "$DEB_FILE"
+          dpkg-deb --contents "$DEB_FILE"
+          exit 1
+        fi
+        
+        echo "✅ ARM64 package created: ${DEB_SIZE_MB} MB"
+        dpkg-deb --info "$DEB_FILE"
 
     - name: Move packages to repository
       run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        
+        echo "📦 Verifying packages before moving..."
+        # Verify packages exist and are valid
+        for arch in amd64 arm64; do
+          DEB_FILE="${{ env.BINARY_NAME }}_${VERSION}_${arch}.deb"
+          
+          if [ ! -f "$DEB_FILE" ]; then
+            echo "❌ ERROR: Package $DEB_FILE does not exist!"
+            exit 1
+          fi
+          
+          SIZE=$(stat -c%s "$DEB_FILE")
+          SIZE_MB=$(echo "scale=2; $SIZE / 1024 / 1024" | bc)
+          
+          if [ "$SIZE" -lt 50000 ]; then
+            echo "❌ ERROR: Package $DEB_FILE is too small: $SIZE bytes"
+            exit 1
+          fi
+          
+          echo "✅ $DEB_FILE: ${SIZE_MB} MB"
+        done
+        
         # Move packages to pool
-        mv ${{ env.BINARY_NAME }}_${{ steps.version.outputs.version }}_amd64.deb \
+        echo ""
+        echo "📁 Moving packages to repository pool..."
+        mv -v ${{ env.BINARY_NAME }}_${VERSION}_amd64.deb \
            apt-repo/pool/main/l/${{ env.BINARY_NAME }}/
-        mv ${{ env.BINARY_NAME }}_${{ steps.version.outputs.version }}_arm64.deb \
+        mv -v ${{ env.BINARY_NAME }}_${VERSION}_arm64.deb \
            apt-repo/pool/main/l/${{ env.BINARY_NAME }}/
+        
+        # Verify packages were moved successfully
+        echo ""
+        echo "📋 Packages in repository:"
+        ls -lh apt-repo/pool/main/l/${{ env.BINARY_NAME }}/ | grep "${VERSION}"
 
     - name: Generate repository metadata
       run: |
@@ -436,17 +598,59 @@ jobs:
 
     - name: Summary
       run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        
         echo "## 📦 APT Repository Updated" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Release:** [${{ github.event.release.tag_name }}](https://github.com/${{ github.repository }}/releases/tag/${{ github.event.release.tag_name }})" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Repository URL:** https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Installation:** " >> $GITHUB_STEP_SUMMARY
+        
+        echo "### 📥 Installation" >> $GITHUB_STEP_SUMMARY
         echo '```bash' >> $GITHUB_STEP_SUMMARY
+        echo '# Add repository' >> $GITHUB_STEP_SUMMARY
         echo 'echo "deb [trusted=yes] https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ stable main" | sudo tee /etc/apt/sources.list.d/lua-bundler.list' >> $GITHUB_STEP_SUMMARY
+        echo '' >> $GITHUB_STEP_SUMMARY
+        echo '# Update and install' >> $GITHUB_STEP_SUMMARY
         echo 'sudo apt update' >> $GITHUB_STEP_SUMMARY
         echo 'sudo apt install lua-bundler' >> $GITHUB_STEP_SUMMARY
         echo '```' >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Packages added:**" >> $GITHUB_STEP_SUMMARY
-        echo "- ${{ env.BINARY_NAME }} v${{ steps.version.outputs.version }} (amd64)" >> $GITHUB_STEP_SUMMARY
-        echo "- ${{ env.BINARY_NAME }} v${{ steps.version.outputs.version }} (arm64)" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### 📦 Packages Published" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Show package details with sizes
+        for arch in amd64 arm64; do
+          DEB_FILE="apt-repo/pool/main/l/${{ env.BINARY_NAME }}/${{ env.BINARY_NAME }}_${VERSION}_${arch}.deb"
+          if [ -f "$DEB_FILE" ]; then
+            SIZE=$(stat -c%s "$DEB_FILE")
+            SIZE_MB=$(echo "scale=2; $SIZE / 1024 / 1024" | bc)
+            
+            echo "#### 📦 \`lua-bundler_${VERSION}_${arch}.deb\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Size:** ${SIZE_MB} MB" >> $GITHUB_STEP_SUMMARY
+            echo "- **Architecture:** ${arch}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Show package info
+            echo "<details>" >> $GITHUB_STEP_SUMMARY
+            echo "<summary>Package Info</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            dpkg-deb --info "$DEB_FILE" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+        done
+        
+        echo "### 📋 Package Contents (AMD64)" >> $GITHUB_STEP_SUMMARY
+        echo "<details>" >> $GITHUB_STEP_SUMMARY
+        echo "<summary>Click to expand</summary>" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        dpkg-deb --contents "apt-repo/pool/main/l/${{ env.BINARY_NAME }}/${{ env.BINARY_NAME }}_${VERSION}_amd64.deb" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "</details>" >> $GITHUB_STEP_SUMMARY

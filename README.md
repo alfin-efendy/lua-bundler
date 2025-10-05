@@ -13,10 +13,9 @@ A powerful Lua script bundler specifically designed for Roblox development. Auto
 - 🌐 **HTTP Support**: Bundles `loadstring(game:HttpGet(...))()` patterns  
 - 📁 **Complex Paths**: Handles relative paths, subdirectories, and parent directories
 - 🚀 **Release Mode**: Removes debug statements (`print`, `warn`) for production
+- 🔒 **Code Obfuscation**: 3-level obfuscation system to protect your code
 - 🎨 **Modern CLI**: Beautiful command-line interface with Cobra and Lipgloss styling
-- � **Modular Architecture**: Clean, maintainable codebase with separated concerns
-- �📋 **Clipboard Integration**: Auto-copy bundled output to clipboard  
-- 🏗️ **Cross-platform**: Supports Linux, macOS, and Windows
+- 🏗️ **Cross-platform**: Supports Linux, macOS, 
 
 ## 📦 Installation
 
@@ -71,6 +70,12 @@ lua-bundler -e main.lua -o bundle.lua
 # Bundle in release mode (removes debug statements)  
 lua-bundler -e main.lua -o bundle.lua --release
 
+# Bundle with code obfuscation (level 2 - medium)
+lua-bundler -e main.lua -o bundle.lua --obfuscate 2
+
+# Bundle with release mode AND heavy obfuscation
+lua-bundler -e main.lua -o bundle.lua --release --obfuscate 3
+
 # Enable verbose output for debugging
 lua-bundler -e main.lua -o bundle.lua --verbose
 
@@ -85,8 +90,100 @@ lua-bundler --help
 | `--entry` | `-e` | Entry point Lua file | `main.lua` |
 | `--output` | `-o` | Output bundled file | `bundle.lua` |
 | `--release` | `-r` | Release mode: remove print and warn statements | `false` |
+| `--obfuscate` | `-O` | Obfuscation level (0-3): 0=none, 1=basic, 2=medium, 3=heavy | `0` |
 | `--verbose` | `-v` | Enable verbose output | `false` |
 | `--help` | `-h` | Show help information | - |
+
+### 🔒 Code Obfuscation
+
+Lua Bundler includes a powerful 3-level obfuscation system to protect your code:
+
+#### Obfuscation Levels
+
+| Level | Name | Description | Features |
+|-------|------|-------------|----------|
+| **0** | None | No obfuscation (default) | Original readable code |
+| **1** | Basic | Light obfuscation | • Removes all comments<br>• Minifies whitespace<br>• Keeps code structure |
+| **2** | Medium | Moderate protection | • All Level 1 features<br>• Renames local variables<br>• Renames functions<br>• Preserves string literals |
+| **3** | Heavy | Maximum protection | • All Level 2 features<br>• Aggressive minification<br>• Single-line output<br>• Minimal size |
+
+#### Obfuscation Examples
+
+**Original Code:**
+```lua
+-- This is a greeting function
+local function greet(name)
+    local message = "Hello, " .. name
+    print(message)
+    return message
+end
+
+local userName = "World"
+greet(userName)
+```
+
+**Level 1 (Basic):**
+```lua
+local function greet(name)
+local message="Hello, "..name
+print(message)
+return message
+end
+local userName="World"
+greet(userName)
+```
+
+**Level 2 (Medium):**
+```lua
+local function _0x4a2f8c(_0x1b3e9d)
+local _0x5c7a2e="Hello, ".._0x1b3e9d
+print(_0x5c7a2e)
+return _0x5c7a2e
+end
+local _0x8f1d4b="World"
+_0x4a2f8c(_0x8f1d4b)
+```
+
+**Level 3 (Heavy):**
+```lua
+local function _0x4a2f8c(_0x1b3e9d) local _0x5c7a2e="Hello, ".._0x1b3e9d print(_0x5c7a2e) return _0x5c7a2e end local _0x8f1d4b="World" _0x4a2f8c(_0x8f1d4b)
+```
+
+#### String Preservation
+
+The obfuscator is **string-aware** and preserves all string literals:
+- ✅ Service names: `game:GetService("HttpService")`
+- ✅ Remote event names: `game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvent")`
+- ✅ All quoted strings remain intact
+- ✅ No breaking of game functionality
+
+#### Usage Examples
+
+```bash
+# Basic obfuscation (comments removed, whitespace minified)
+lua-bundler -e main.lua -o bundle.lua -O 1
+
+# Medium obfuscation (+ identifier renaming)
+lua-bundler -e main.lua -o bundle.lua -O 2
+
+# Heavy obfuscation (+ single-line minification)
+lua-bundler -e main.lua -o bundle.lua -O 3
+
+# Combine with release mode for maximum optimization
+lua-bundler -e main.lua -o bundle.lua --release --obfuscate 3
+```
+
+#### When to Use Obfuscation
+
+| Use Case | Recommended Level |
+|----------|-------------------|
+| Open-source projects | 0 (None) |
+| Development/Testing | 0-1 |
+| Private projects | 1-2 |
+| Commercial products | 2-3 |
+| Premium scripts | 3 (Heavy) |
+
+> **Note:** Obfuscation is not encryption. It makes code harder to read but doesn't provide complete security. Always use server-side validation for critical logic.
 
 ### Using Makefile (Development)
 
@@ -128,10 +225,14 @@ local EzUI = loadstring(game:HttpGet('https://raw.githubusercontent.com/alfin-ef
 
 **Command:**
 ```bash
-lua-bundler -entry main.lua -output bundle.lua -release
+# Basic bundle
+lua-bundler -entry main.lua -output bundle.lua
+
+# With release mode and obfuscation
+lua-bundler -entry main.lua -output bundle.lua --release --obfuscate 2
 ```
 
-**Result:** A single `bundle.lua` file with all dependencies embedded and debug statements removed.
+**Result:** A single `bundle.lua` file with all dependencies embedded, debug statements removed, and code obfuscated for protection.
 
 ## 🛠️ Development
 
