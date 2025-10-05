@@ -2,8 +2,6 @@ package obfuscator
 
 import (
 	"crypto/rand"
-	"encoding/base64"
-	"fmt"
 	"math/big"
 	"regexp"
 	"strings"
@@ -219,44 +217,6 @@ func isAlphaNumOrUnderscore(c byte) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
-// encodeStrings encodes string literals
-func (o *Obfuscator) encodeStrings(code string) string {
-	// Match string literals (both single and double quotes)
-	stringRegex := regexp.MustCompile(`["']([^"'\\]*(\\.[^"'\\]*)*)["']`)
-
-	result := stringRegex.ReplaceAllStringFunc(code, func(match string) string {
-		// Remove quotes
-		content := match[1 : len(match)-1]
-
-		// Skip very short strings and module paths
-		if len(content) < 3 || strings.Contains(content, "/") || strings.Contains(content, ".") {
-			return match
-		}
-
-		// Encode to base64
-		encoded := base64.StdEncoding.EncodeToString([]byte(content))
-		return fmt.Sprintf(`(function() local b='%s' local s='' for i=1,#b do s=s..string.char(b:byte(i)) end return (s:gsub('%%s',''):gsub('%%+','-'):gsub('%%/','\\_')) end)()`, encoded)
-	})
-
-	return result
-}
-
-// addControlFlow adds dummy control flow obfuscation
-func (o *Obfuscator) addControlFlow(code string) string {
-	// Add a simple control flow wrapper
-	varName := o.generateObfuscatedName()
-	wrapper := fmt.Sprintf(`
-(function()
-	local %s = %d
-	if %s > 0 then
-		%s
-	end
-end)()
-`, varName, o.randomInt(1, 100), varName, code)
-
-	return wrapper
-}
-
 // generateObfuscatedName generates a random obfuscated identifier
 func (o *Obfuscator) generateObfuscatedName() string {
 	// Generate random identifier like _0x1a2b3c
@@ -271,10 +231,4 @@ func (o *Obfuscator) generateObfuscatedName() string {
 	}
 
 	return prefix + string(result)
-}
-
-// randomInt generates a random integer between min and max
-func (o *Obfuscator) randomInt(min, max int) int {
-	n, _ := rand.Int(rand.Reader, big.NewInt(int64(max-min+1)))
-	return int(n.Int64()) + min
 }
