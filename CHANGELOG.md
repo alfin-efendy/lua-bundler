@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.3.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.2.0...v1.3.0) (2025-10-05)
+
+### 🚀 Features
+
+* Implement Lua bundler with module handling and obfuscation ([68778cd](https://github.com/alfin-efendy/lua-bundler/commit/68778cd51a8a9cb30bb7dffb9d4709c1bb1d7b2a))
+
+### ♻️ Code Refactoring
+
+* Remove unused string encoding and control flow functions from obfuscator ([c801913](https://github.com/alfin-efendy/lua-bundler/commit/c801913ca64a9484885ad6acb3769c40f1d752b8))
+
+### 📚 Documentation
+
+* Update README.md ([9774180](https://github.com/alfin-efendy/lua-bundler/commit/9774180cb3ca34eb7c5c86d79233bd79dab8b460))
+
 ## [1.2.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.1.0...v1.2.0) (2025-10-04)
 
 ### 🚀 Features
