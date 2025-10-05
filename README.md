@@ -15,7 +15,7 @@ A powerful Lua script bundler specifically designed for Roblox development. Auto
 - 🚀 **Release Mode**: Removes debug statements (`print`, `warn`) for production
 - 🔒 **Code Obfuscation**: 3-level obfuscation system to protect your code
 - 🎨 **Modern CLI**: Beautiful command-line interface with Cobra and Lipgloss styling
-- 🏗️ **Cross-platform**: Supports Linux, macOS, 
+- 🏗️ **Cross-platform**: Supports Linux, macOS, and Windows
 
 ## 📦 Installation
 
