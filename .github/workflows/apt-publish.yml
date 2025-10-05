@@ -22,13 +22,27 @@ jobs:
   build-deb-and-publish:
     name: Build Debian Package and Update APT Repository
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' && !github.event.release.prerelease || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch'
     
     steps:
     - uses: actions/checkout@v5
       with:
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Get release tag
+      id: get_tag
+      run: |
+        # Determine TAG from event type
+        if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+          TAG="${{ github.event.client_payload.tag }}"
+        elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          TAG="${{ github.event.inputs.tag }}"
+        else
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
+        fi
+        echo "tag=${TAG}" >> $GITHUB_OUTPUT
+        echo "Tag: ${TAG}"
 
     # Checkout gh-pages branch for APT repository
     - name: Checkout gh-pages branch
@@ -55,9 +69,10 @@ jobs:
 
     - name: Download release binaries
       run: |
-        if [ "${{ github.event_name }}" = "release" ] && [ -n "${{ github.event.release.tag_name }}" ]; then
-          echo "📥 Downloading release binaries from tag: ${{ github.event.release.tag_name }}"
-          TAG="${{ github.event.release.tag_name }}"
+        TAG="${{ steps.get_tag.outputs.tag }}"
+        echo "📥 Downloading release binaries from tag: ${TAG}"
+        
+        if [ -n "${TAG}" ]; then
           
           # Download Linux AMD64 binary from release
           echo "Downloading AMD64 binary..."
@@ -79,12 +94,8 @@ jobs:
           
           echo "✅ Successfully downloaded both binaries"
         else
-          echo "⚠️ Not triggered by release, building binaries locally..."
-          # Build locally for manual workflow dispatch
-          echo "Building AMD64..."
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ${{ env.BINARY_NAME }}-amd64 .
-          echo "Building ARM64..."
-          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ${{ env.BINARY_NAME }}-arm64 .
+          echo "❌ ERROR: TAG is empty!"
+          exit 1
         fi
         
         # Verify binaries exist and are valid
@@ -118,13 +129,8 @@ jobs:
     - name: Get version
       id: version
       run: |
-        # Get version from release tag or latest git tag
-        if [ "${{ github.event_name }}" = "release" ]; then
-          VERSION="${{ github.event.release.tag_name }}"
-        else
-          # For workflow_dispatch, get latest tag
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
-        fi
+        # Get version from tag (remove 'v' prefix)
+        VERSION="${{ steps.get_tag.outputs.tag }}"
         VERSION="${VERSION#v}"  # Remove 'v' prefix if present
         
         # Validate version is not empty
@@ -237,7 +243,7 @@ jobs:
 
         # Replace placeholders in changelog
         sed -i "s|VERSION_PLACEHOLDER|${{ steps.version.outputs.version }}|g" "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/changelog.Debian"
-        sed -i "s|RELEASE_URL_PLACEHOLDER|https://github.com/${{ github.repository }}/releases/tag/${{ github.event.release.tag_name }}|g" "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/changelog.Debian"
+        sed -i "s|RELEASE_URL_PLACEHOLDER|https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_tag.outputs.tag }}|g" "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/changelog.Debian"
         sed -i "s|MAINTAINER_PLACEHOLDER|${{ github.repository_owner }} <${{ github.repository_owner }}@users.noreply.github.com>|g" "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/changelog.Debian"
         sed -i "s|DATE_PLACEHOLDER|$(date -R)|g" "$PKG_DIR/usr/share/doc/${{ env.BINARY_NAME }}/changelog.Debian"
 
@@ -577,7 +583,7 @@ jobs:
         if git diff --staged --quiet; then
           echo "No changes to commit"
         else
-          git commit -m "Update APT repository - Release ${{ github.event.release.tag_name }}"
+          git commit -m "Update APT repository - Release ${{ steps.get_tag.outputs.tag }}"
           git push
         fi
 
@@ -606,7 +612,7 @@ jobs:
         echo "## 📦 APT Repository Updated" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Version:** \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
-        echo "**Release:** [${{ github.event.release.tag_name }}](https://github.com/${{ github.repository }}/releases/tag/${{ github.event.release.tag_name }})" >> $GITHUB_STEP_SUMMARY
+        echo "**Release:** [${{ steps.get_tag.outputs.tag }}](https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_tag.outputs.tag }})" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Repository URL:** https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
