@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.4.1...v1.5.0) (2025-10-05)
+
+### 🚀 Features
+
+* Add obfuscation option and improve minification in Lua bundler ([287ea05](https://github.com/alfin-efendy/lua-bundler/commit/287ea05db42c3ad8a9cefa05aa4808f2fda18f39))
+
 ## [1.4.1](https://github.com/alfin-efendy/lua-bundler/compare/v1.4.0...v1.4.1) (2025-10-05)
 
 ### 🐛 Bug Fixes
