@@ -159,7 +159,7 @@ example: build
 	@echo "$(GREEN)Running example in release mode...$(NC)"
 	@mkdir -p $(OUTPUT_DIR)
 	@if [ -f "$(ENTRY_FILE)" ]; then \
-		./$(BUILD_DIR)/$(BINARY_NAME) -e $(ENTRY_FILE) -o $(OUTPUT_FILE) --release; \
+		./$(BUILD_DIR)/$(BINARY_NAME) -e $(ENTRY_FILE) -o $(OUTPUT_FILE) --release --obfuscate 3; \
 		echo "$(GREEN)Example bundle created: $(OUTPUT_FILE)$(NC)"; \
 	else \
 		echo "$(RED)Entry file $(ENTRY_FILE) not found!$(NC)"; \
