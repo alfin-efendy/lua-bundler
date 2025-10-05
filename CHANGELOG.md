@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.4.1](https://github.com/alfin-efendy/lua-bundler/compare/v1.4.0...v1.4.1) (2025-10-05)
+
+### 🐛 Bug Fixes
+
+* Update APT publish workflow to handle repository_dispatch and workflow_dispatch events ([fa50a30](https://github.com/alfin-efendy/lua-bundler/commit/fa50a30521b6abfbec1257ae2d897dd41a71d52b))
+
 ## [1.4.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.3.0...v1.4.0) (2025-10-05)
 
 ### 🚀 Features
