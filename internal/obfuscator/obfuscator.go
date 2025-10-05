@@ -83,8 +83,8 @@ func (o *Obfuscator) minifyWhitespace(code string) string {
 	multiSpace := regexp.MustCompile(`[ \t]+`)
 	code = multiSpace.ReplaceAllString(code, " ")
 
-	// Remove spaces around operators
-	code = regexp.MustCompile(`\s*([=+\-*/<>~])\s*`).ReplaceAllString(code, "$1")
+	// Skip operator minification to avoid breaking syntax
+	// It's safer to preserve spaces around operators
 
 	// Remove empty lines
 	code = regexp.MustCompile(`\n\s*\n`).ReplaceAllString(code, "\n")
@@ -94,10 +94,10 @@ func (o *Obfuscator) minifyWhitespace(code string) string {
 
 // aggressiveMinify applies aggressive minification
 func (o *Obfuscator) aggressiveMinify(code string) string {
-	// Remove all newlines and replace with spaces
+	// Remove all newlines and replace with spaces (single line output)
 	code = strings.ReplaceAll(code, "\n", " ")
 
-	// Remove spaces after specific keywords
+	// Remove spaces after specific keywords that don't need them
 	code = regexp.MustCompile(`\b(then|do|repeat)\s+`).ReplaceAllString(code, "$1 ")
 
 	// Remove spaces before specific keywords
@@ -118,13 +118,26 @@ func (o *Obfuscator) renameIdentifiers(code string) string {
 	matches := localVarRegex.FindAllStringSubmatch(code, -1)
 	funcMatches := localFuncRegex.FindAllStringSubmatch(code, -1)
 
-	// Reserved Lua keywords that should not be renamed
+	// Reserved Lua keywords and Roblox globals that should not be renamed
 	reserved := map[string]bool{
+		// Lua keywords
 		"and": true, "break": true, "do": true, "else": true, "elseif": true,
 		"end": true, "false": true, "for": true, "function": true, "if": true,
 		"in": true, "local": true, "nil": true, "not": true, "or": true,
 		"repeat": true, "return": true, "then": true, "true": true, "until": true,
 		"while": true, "goto": true,
+		// Roblox/Luau globals that should be preserved
+		"game": true, "workspace": true, "script": true, "task": true, "wait": true,
+		"spawn": true, "delay": true, "tick": true, "time": true, "typeof": true,
+		"pcall": true, "xpcall": true, "pairs": true, "ipairs": true, "next": true,
+		"getmetatable": true, "setmetatable": true, "rawget": true, "rawset": true,
+		"print": true, "warn": true, "error": true, "assert": true, "select": true,
+		"unpack": true, "tostring": true, "tonumber": true, "type": true,
+		"loadstring": true, "require": true, "getfenv": true, "setfenv": true,
+		// Additional Roblox services and globals
+		"Instance": true, "Vector3": true, "Vector2": true, "CFrame": true,
+		"Color3": true, "UDim2": true, "Enum": true, "Random": true, "Region3": true,
+		"TweenInfo": true, "BrickColor": true, "Ray": true, "Faces": true,
 	}
 
 	// Create mapping for identifiers
