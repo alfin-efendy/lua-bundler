@@ -138,6 +138,17 @@ func (o *Obfuscator) renameIdentifiers(code string) string {
 		"Instance": true, "Vector3": true, "Vector2": true, "CFrame": true,
 		"Color3": true, "UDim2": true, "Enum": true, "Random": true, "Region3": true,
 		"TweenInfo": true, "BrickColor": true, "Ray": true, "Faces": true,
+		// Executor HTTP request functions (CRITICAL - must not be renamed)
+		"request": true, "http_request": true, "http": true, "syn": true,
+		"fluxus": true, "HttpService": true,
+		// Common executor globals
+		"getgenv": true, "getrenv": true, "getrawmetatable": true,
+		"hookfunction": true, "hookmetamethod": true, "islclosure": true,
+		"newcclosure": true, "checkcaller": true, "cloneref": true,
+		"compareinstances": true, "Drawing": true, "WebSocket": true,
+		"crypt": true, "base64": true, "base64_encode": true, "base64_decode": true,
+		"readfile": true, "writefile": true, "appendfile": true, "makefolder": true,
+		"isfolder": true, "isfile": true, "listfiles": true, "delfile": true, "delfolder": true,
 	}
 
 	// Create mapping for identifiers
