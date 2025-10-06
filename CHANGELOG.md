@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.6.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.5.0...v1.6.0) (2025-10-06)
+
+### 🚀 Features
+
+* Add critical executor HTTP request functions to identifier mapping in obfuscator ([043b76e](https://github.com/alfin-efendy/lua-bundler/commit/043b76ebc176ab92de75e06b2304548a3d419205))
+
 ## [1.5.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.4.1...v1.5.0) (2025-10-05)
 
 ### 🚀 Features
