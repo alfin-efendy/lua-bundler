@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.8.1](https://github.com/alfin-efendy/lua-bundler/compare/v1.8.0...v1.8.1) (2025-11-02)
+
+### 🐛 Bug Fixes
+
+* add build metadata to binaries including build date and git commit hash ([8f6e963](https://github.com/alfin-efendy/lua-bundler/commit/8f6e9637f2e9f0705f484ad4725611a74efd07ed))
+
+### 📚 Documentation
+
+* enhance installation instructions and add custom repository guidelines ([5d1c045](https://github.com/alfin-efendy/lua-bundler/commit/5d1c0450b358d1bdee515df66e9b843fe80f17a8))
+
 ## [1.8.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.7.0...v1.8.0) (2025-11-02)
 
 ### 🚀 Features
