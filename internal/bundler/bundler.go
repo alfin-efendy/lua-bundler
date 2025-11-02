@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/alfin-efendy/lua-bundler/internal/cache"
 )
 
 type Bundler struct {
@@ -13,10 +15,11 @@ type Bundler struct {
 	baseDir    string
 	entryFile  string
 	httpClient *http.Client
+	cache      *cache.Cache
 	verbose    bool
 }
 
-func NewBundler(entryFile string, verbose bool) (*Bundler, error) {
+func NewBundler(entryFile string, verbose bool, useCache bool) (*Bundler, error) {
 	baseDir := filepath.Dir(entryFile)
 	if baseDir == "." {
 		var err error
@@ -26,6 +29,12 @@ func NewBundler(entryFile string, verbose bool) (*Bundler, error) {
 		}
 	}
 
+	// Initialize cache
+	c, err := cache.NewCache(useCache)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize cache: %w", err)
+	}
+
 	return &Bundler{
 		modules:   make(map[string]string),
 		baseDir:   baseDir,
@@ -33,6 +42,7 @@ func NewBundler(entryFile string, verbose bool) (*Bundler, error) {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		cache:   c,
 		verbose: verbose,
 	}, nil
 }

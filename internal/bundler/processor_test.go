@@ -8,7 +8,7 @@ import (
 )
 
 func TestIsLocalModule(t *testing.T) {
-	b, err := NewBundler("test.lua", false)
+	b, err := NewBundler("test.lua", false, false)
 	require.NoError(t, err, "NewBundler should not fail")
 
 	tests := []struct {
@@ -72,7 +72,7 @@ func TestIsLocalModule(t *testing.T) {
 }
 
 func TestResolveModulePath(t *testing.T) {
-	b, err := NewBundler("/base/main.lua", false)
+	b, err := NewBundler("/base/main.lua", false, false)
 	require.NoError(t, err, "NewBundler should not fail")
 	b.baseDir = "/base"
 

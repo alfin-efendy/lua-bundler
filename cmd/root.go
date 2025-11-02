@@ -15,7 +15,7 @@ var (
 	// Version information
 	version   = "dev"
 	buildDate = "unknown"
-	gitCommit = "unknown"
+
 	// Styles using Lipgloss
 	titleStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FAFAFA")).
@@ -69,6 +69,7 @@ var rootCmd = &cobra.Command{
 		obfuscateLevel, _ := cmd.Flags().GetInt("obfuscate")
 		serve, _ := cmd.Flags().GetBool("serve")
 		port, _ := cmd.Flags().GetInt("port")
+		noCache, _ := cmd.Flags().GetBool("no-cache")
 
 		if entryFile == "" {
 			fmt.Println(errorStyle.Render("❌ Entry file is required"))
@@ -99,10 +100,15 @@ var rootCmd = &cobra.Command{
 		if serve {
 			fmt.Printf("  HTTP Server: %s\n", infoStyle.Render(fmt.Sprintf("Port %d", port)))
 		}
+		if noCache {
+			fmt.Printf("  HTTP Cache: %s\n", warningStyle.Render("Disabled"))
+		} else {
+			fmt.Printf("  HTTP Cache: %s\n", infoStyle.Render("Enabled"))
+		}
 		fmt.Println()
 
 		// Create bundler
-		b, err := bundler.NewBundler(entryFile, verbose)
+		b, err := bundler.NewBundler(entryFile, verbose, !noCache)
 		if err != nil {
 			fmt.Println(errorStyle.Render(fmt.Sprintf("❌ Failed to create bundler: %v", err)))
 			os.Exit(1)
@@ -161,7 +167,6 @@ func printSuccess(b *bundler.Bundler, outputFile string, obfuscateLevel int) {
 func SetVersionInfo(v, date, commit string) {
 	version = v
 	buildDate = date
-	gitCommit = commit
 
 	// Truncate commit hash for display (handle short commits)
 	commitDisplay := commit
@@ -188,4 +193,5 @@ func init() {
 	rootCmd.Flags().BoolP("verbose", "v", false, "Enable verbose output")
 	rootCmd.Flags().BoolP("serve", "s", false, "Start HTTP server to serve the output file")
 	rootCmd.Flags().IntP("port", "p", 8080, "Port for HTTP server (used with --serve)")
+	rootCmd.Flags().BoolP("no-cache", "n", false, "Disable HTTP cache for remote scripts")
 }
