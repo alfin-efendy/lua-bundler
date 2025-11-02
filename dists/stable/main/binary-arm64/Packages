@@ -1,13 +1,13 @@
 Package: lua-bundler
-Version: 1.8.0
+Version: 1.8.1
 Architecture: arm64
 Maintainer: alfin-efendy <alfin-efendy@users.noreply.github.com>
 Depends: libc6 (>= 2.17)
-Filename: pool/main/l/lua-bundler/lua-bundler_1.8.0_arm64.deb
-Size: 2310138
-MD5sum: 24aa91f90d25a6c07183ca0d22786997
-SHA1: ad29a9976acd2b1d409dbf03d130f0d8a8c52433
-SHA256: c31118469062d85f7d7ff7ba4afba6ebfe8611bd21f022e61ff1bdd2b5d6d133
+Filename: pool/main/l/lua-bundler/lua-bundler_1.8.1_arm64.deb
+Size: 2310338
+MD5sum: 362d21e7eb532e262d0e5327d5901fd7
+SHA1: 41d7e99ad3ac8a457ba18fd9c6647eba5c0e82d1
+SHA256: 9324d5a04e5dc7963890ed869113583ed2593d312a8674f98264dc0f740ea17a
 Section: utils
 Priority: optional
 Homepage: https://github.com/alfin-efendy/lua-bundler
