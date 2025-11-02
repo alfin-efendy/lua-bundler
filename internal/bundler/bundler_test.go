@@ -39,7 +39,7 @@ func TestNewBundler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b, err := NewBundler(tt.entryFile, tt.verbose)
+			b, err := NewBundler(tt.entryFile, tt.verbose, false)
 
 			if tt.wantErr {
 				assert.Error(t, err, "NewBundler() should return error")
@@ -121,7 +121,7 @@ return m
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b, err := NewBundler(tt.entryFile, false)
+			b, err := NewBundler(tt.entryFile, false, false)
 			require.NoError(t, err, "NewBundler() should not fail")
 
 			result, err := b.Bundle(tt.release)
@@ -142,7 +142,7 @@ return m
 }
 
 func TestBundle_NonexistentFile(t *testing.T) {
-	b, err := NewBundler("nonexistent.lua", false)
+	b, err := NewBundler("nonexistent.lua", false, false)
 	require.NoError(t, err, "NewBundler() should not fail")
 
 	_, err = b.Bundle(false)
@@ -150,7 +150,7 @@ func TestBundle_NonexistentFile(t *testing.T) {
 }
 
 func TestGetModules(t *testing.T) {
-	b, err := NewBundler("test.lua", false)
+	b, err := NewBundler("test.lua", false, false)
 	require.NoError(t, err, "NewBundler() should not fail")
 
 	// Initially should be empty

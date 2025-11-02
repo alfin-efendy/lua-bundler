@@ -12,8 +12,18 @@ import (
 
 // downloadHTTP downloads content from HTTP URL
 func (b *Bundler) downloadHTTP(url string) (string, error) {
+	// Check cache first
+	if b.cache.IsEnabled() {
+		if content, found, err := b.cache.Get(url); err == nil && found {
+			if b.verbose {
+				fmt.Printf("� Using cached: %s\n", url)
+			}
+			return content, nil
+		}
+	}
+
 	if b.verbose {
-		fmt.Printf("📥 Downloading: %s\n", url)
+		fmt.Printf("�📥 Downloading: %s\n", url)
 	}
 
 	resp, err := b.httpClient.Get(url)
@@ -31,7 +41,19 @@ func (b *Bundler) downloadHTTP(url string) (string, error) {
 		return "", fmt.Errorf("failed to read response from %s: %w", url, err)
 	}
 
-	return string(content), nil
+	contentStr := string(content)
+
+	// Store in cache
+	if b.cache.IsEnabled() {
+		if err := b.cache.Set(url, contentStr); err != nil {
+			// Log warning but don't fail
+			if b.verbose {
+				fmt.Printf("⚠️  Failed to cache %s: %v\n", url, err)
+			}
+		}
+	}
+
+	return contentStr, nil
 }
 
 // isLocalModule checks if a module path refers to a local file

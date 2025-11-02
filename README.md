@@ -11,7 +11,8 @@ A powerful Lua script bundler specifically designed for Roblox development. Auto
 
 - 🔄 **Dependency Resolution**: Automatically resolves local `require()` statements
 - 🌐 **HTTP Support**: Bundles `loadstring(game:HttpGet(...))()` patterns  
-- 📁 **Complex Paths**: Handles relative paths, subdirectories, and parent directories
+- � **Smart Caching**: Automatic caching of HTTP scripts with 24-hour expiry
+- �📁 **Complex Paths**: Handles relative paths, subdirectories, and parent directories
 - 🚀 **Release Mode**: Removes debug statements (`print`, `warn`) for production
 - 🔒 **Code Obfuscation**: 3-level obfuscation system to protect your code
 - 🖥️ **HTTP Server**: Serve bundled files via HTTP for easy Roblox integration
@@ -98,7 +99,39 @@ lua-bundler --help
 | `--verbose` | `-v` | Enable verbose output | `false` |
 | `--serve` | `-s` | Start HTTP server to serve the output file | `false` |
 | `--port` | `-p` | Port for HTTP server (used with --serve) | `8080` |
+| `--no-cache` | `-n` | Disable HTTP cache for remote scripts | `false` |
 | `--help` | `-h` | Show help information | - |
+
+### 💾 HTTP Cache
+
+Lua Bundler automatically caches downloaded HTTP scripts to improve build times and reduce network requests.
+
+**Features:**
+- ✅ Automatic caching of `game:HttpGet()` scripts
+- ✅ Cache expiry after 24 hours
+- ✅ Stored in `~/.lua-bundler-cache/`
+- ✅ MD5-based cache keys for URL uniqueness
+
+**Usage:**
+
+```bash
+# Default behavior - cache enabled
+lua-bundler -e main.lua -o bundle.lua
+
+# First run - downloads and caches HTTP scripts
+# 📥 Downloading: https://example.com/script.lua
+
+# Second run - uses cached version
+# 💾 Using cached: https://example.com/script.lua
+
+# Disable cache for always-fresh downloads
+lua-bundler -e main.lua -o bundle.lua --no-cache
+```
+
+**When to use `--no-cache`:**
+- 🔄 During active development when remote scripts change frequently
+- 🐛 When debugging issues with remote dependencies
+- ✅ When you need to ensure the latest version is fetched
 
 ### 🌍 HTTP Server
 

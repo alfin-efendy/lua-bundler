@@ -9,7 +9,7 @@ import (
 )
 
 func TestGenerateBundle(t *testing.T) {
-	b, err := NewBundler("test.lua", false)
+	b, err := NewBundler("test.lua", false, false)
 	require.NoError(t, err, "NewBundler should not fail")
 
 	// Add some test modules
@@ -155,7 +155,7 @@ func TestEscapeString(t *testing.T) {
 }
 
 func TestGenerateBundle_EmptyModules(t *testing.T) {
-	b, err := NewBundler("test.lua", false)
+	b, err := NewBundler("test.lua", false, false)
 	require.NoError(t, err, "NewBundler should not fail")
 	// No modules added
 
@@ -171,7 +171,7 @@ func TestGenerateBundle_EmptyModules(t *testing.T) {
 }
 
 func TestGenerateBundle_ModuleIndentation(t *testing.T) {
-	b, err := NewBundler("test.lua", false)
+	b, err := NewBundler("test.lua", false, false)
 	require.NoError(t, err, "NewBundler should not fail")
 
 	moduleContent := `local test = {}

@@ -155,7 +155,7 @@ func TestRootCmd_NonexistentFile(t *testing.T) {
 	// We test the underlying bundler functionality directly since the CLI calls os.Exit
 
 	// Test the bundler directly with a nonexistent file
-	b, err := bundler.NewBundler("nonexistent.lua", false)
+	b, err := bundler.NewBundler("nonexistent.lua", false, false)
 	require.NoError(t, err, "NewBundler should not fail for nonexistent file at creation")
 
 	// The Bundle() method should return an error
