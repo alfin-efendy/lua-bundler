@@ -15,6 +15,7 @@ var (
 	// Version information
 	version   = "dev"
 	buildDate = "unknown"
+	gitCommit = "unknown"
 
 	// Styles using Lipgloss
 	titleStyle = lipgloss.NewStyle().

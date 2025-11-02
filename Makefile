@@ -13,8 +13,11 @@ OUTPUT_DIR=output
 ENTRY_FILE ?= example/myscript/main.lua
 OUTPUT_FILE ?= $(OUTPUT_DIR)/example_bundle.lua
 
+# Build information
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-LDFLAGS=-ldflags "-X main.Version=$(VERSION)"
+BUILD_DATE ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
+GIT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
+LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.buildDate=$(BUILD_DATE) -X main.gitCommit=$(GIT_COMMIT)"
 
 # Default target
 .DEFAULT_GOAL := build
