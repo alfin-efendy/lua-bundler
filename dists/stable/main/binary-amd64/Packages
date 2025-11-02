@@ -1,13 +1,13 @@
 Package: lua-bundler
-Version: 1.6.0
+Version: 1.7.0
 Architecture: amd64
 Maintainer: alfin-efendy <alfin-efendy@users.noreply.github.com>
 Depends: libc6 (>= 2.17)
-Filename: pool/main/l/lua-bundler/lua-bundler_1.6.0_amd64.deb
-Size: 2877364
-MD5sum: 861008a375d98a89c26fe50c6a54dd4e
-SHA1: 2d05279e35218cd9367bf8a18617e8d0ba5b66b7
-SHA256: 0e35a4afd7eaa2c9ef3d47ac3134ff8b10a4c99c3fefe40cd24156336b3dfc3c
+Filename: pool/main/l/lua-bundler/lua-bundler_1.7.0_amd64.deb
+Size: 2567036
+MD5sum: 98ecff08f77875079fc5ec1c75051a4a
+SHA1: 8fee9d52fbc7413ec2c39d33b89138885c3de455
+SHA256: 06a90785f8a9aa3f1b9de1014ee6154667f40804a8ead3fd4c54580f41c71661
 Section: utils
 Priority: optional
 Homepage: https://github.com/alfin-efendy/lua-bundler
