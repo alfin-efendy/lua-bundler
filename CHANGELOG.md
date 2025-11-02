@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.8.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.7.0...v1.8.0) (2025-11-02)
+
+### 🚀 Features
+
+* implement HTTP caching mechanism with 24-hour expiry and update CLI options ([ec304c2](https://github.com/alfin-efendy/lua-bundler/commit/ec304c289fa5f10eb2c53a6891ac09e9a4c18081))
+
 ## [1.7.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.6.0...v1.7.0) (2025-11-02)
 
 ### 🚀 Features
