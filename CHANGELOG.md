@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.7.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.6.0...v1.7.0) (2025-11-02)
+
+### 🚀 Features
+
+* add built-in HTTP server to serve bundled files ([ecfd345](https://github.com/alfin-efendy/lua-bundler/commit/ecfd3455b81cbfe861175d3a8e6a70055e7e9009))
+
 ## [1.6.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.5.0...v1.6.0) (2025-10-06)
 
 ### 🚀 Features
