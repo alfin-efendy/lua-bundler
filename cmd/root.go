@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/alfin-efendy/lua-bundler/internal/bundler"
+	httpserver "github.com/alfin-efendy/lua-bundler/internal/http"
 	"github.com/alfin-efendy/lua-bundler/internal/obfuscator"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -53,10 +54,12 @@ var rootCmd = &cobra.Command{
 		"  • Embed HTTP dependencies from game:HttpGet()",
 		"  • Release mode to remove debug statements",
 		"  • Code obfuscation support (3 levels)",
+		"  • HTTP server to serve bundled output",
 		"  • Beautiful terminal output with colors",
 		"",
 		warningStyle.Render("Example:"),
 		"  lua-bundler -e main.lua -o bundle.lua --release --obfuscate 2",
+		"  lua-bundler -e main.lua -o bundle.lua --serve --port 8080",
 	),
 	Run: func(cmd *cobra.Command, args []string) {
 		entryFile, _ := cmd.Flags().GetString("entry")
@@ -64,6 +67,8 @@ var rootCmd = &cobra.Command{
 		release, _ := cmd.Flags().GetBool("release")
 		verbose, _ := cmd.Flags().GetBool("verbose")
 		obfuscateLevel, _ := cmd.Flags().GetInt("obfuscate")
+		serve, _ := cmd.Flags().GetBool("serve")
+		port, _ := cmd.Flags().GetInt("port")
 
 		if entryFile == "" {
 			fmt.Println(errorStyle.Render("❌ Entry file is required"))
@@ -90,6 +95,9 @@ var rootCmd = &cobra.Command{
 		}
 		if verbose {
 			fmt.Printf("  Verbose: %s\n", infoStyle.Render("Enabled"))
+		}
+		if serve {
+			fmt.Printf("  HTTP Server: %s\n", infoStyle.Render(fmt.Sprintf("Port %d", port)))
 		}
 		fmt.Println()
 
@@ -123,6 +131,11 @@ var rootCmd = &cobra.Command{
 
 		// Success message
 		printSuccess(b, outputFile, obfuscateLevel)
+
+		// Start HTTP server if serve flag is enabled
+		if serve {
+			httpserver.StartServer(outputFile, port)
+		}
 	},
 }
 
@@ -173,4 +186,6 @@ func init() {
 	rootCmd.Flags().BoolP("release", "r", false, "Release mode: remove print and warn statements")
 	rootCmd.Flags().IntP("obfuscate", "O", 0, "Obfuscation level (0=none, 1=basic, 2=medium, 3=heavy)")
 	rootCmd.Flags().BoolP("verbose", "v", false, "Enable verbose output")
+	rootCmd.Flags().BoolP("serve", "s", false, "Start HTTP server to serve the output file")
+	rootCmd.Flags().IntP("port", "p", 8080, "Port for HTTP server (used with --serve)")
 }

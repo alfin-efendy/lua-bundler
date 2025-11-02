@@ -14,6 +14,7 @@ A powerful Lua script bundler specifically designed for Roblox development. Auto
 - 📁 **Complex Paths**: Handles relative paths, subdirectories, and parent directories
 - 🚀 **Release Mode**: Removes debug statements (`print`, `warn`) for production
 - 🔒 **Code Obfuscation**: 3-level obfuscation system to protect your code
+- 🖥️ **HTTP Server**: Serve bundled files via HTTP for easy Roblox integration
 - 🎨 **Modern CLI**: Beautiful command-line interface with Cobra and Lipgloss styling
 - 🏗️ **Cross-platform**: Supports Linux, macOS, and Windows
 
@@ -79,6 +80,9 @@ lua-bundler -e main.lua -o bundle.lua --release --obfuscate 3
 # Enable verbose output for debugging
 lua-bundler -e main.lua -o bundle.lua --verbose
 
+# Serve bundled file via HTTP (useful for Roblox game:HttpGet())
+lua-bundler -e main.lua -o bundle.lua --serve --port 8080
+
 # Show help with beautiful CLI interface
 lua-bundler --help
 ```
@@ -92,7 +96,42 @@ lua-bundler --help
 | `--release` | `-r` | Release mode: remove print and warn statements | `false` |
 | `--obfuscate` | `-O` | Obfuscation level (0-3): 0=none, 1=basic, 2=medium, 3=heavy | `0` |
 | `--verbose` | `-v` | Enable verbose output | `false` |
+| `--serve` | `-s` | Start HTTP server to serve the output file | `false` |
+| `--port` | `-p` | Port for HTTP server (used with --serve) | `8080` |
 | `--help` | `-h` | Show help information | - |
+
+### 🌍 HTTP Server
+
+Lua Bundler includes a built-in HTTP server to serve your bundled files, making it easy to load them into Roblox using `game:HttpGet()`.
+
+#### Basic Usage
+
+```bash
+# Bundle and serve on default port (8080)
+lua-bundler -e main.lua -o bundle.lua --serve
+
+# Bundle and serve on custom port
+lua-bundler -e main.lua -o bundle.lua --serve --port 3000
+```
+
+#### Features
+
+- 📄 **Direct File Access**: Access the bundled file directly at `http://localhost:PORT/filename.lua`
+- 📋 **Directory Listing**: View all `.lua` files in the output directory at `http://localhost:PORT/`
+- 🔄 **Live Serving**: Server keeps running until you stop it (Ctrl+C)
+- 🌐 **CORS Enabled**: Cross-Origin Resource Sharing enabled for easy integration
+- 📝 **Request Logging**: All HTTP requests are logged with timestamps
+
+#### Using in Roblox
+
+Once the server is running, you can load the bundled script in Roblox:
+
+```lua
+-- Load the bundled script from local HTTP server
+loadstring(game:HttpGet("http://localhost:8080/bundle.lua"))()
+```
+
+**Note**: For production, you should host your bundled files on a public server. The built-in HTTP server is primarily for development and testing purposes.
 
 ### 🔒 Code Obfuscation
 
