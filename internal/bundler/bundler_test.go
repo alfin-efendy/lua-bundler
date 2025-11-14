@@ -113,8 +113,13 @@ return m
 			release:   true,
 			wantErr:   false,
 			checkOutput: func(output string) bool {
-				return strings.Contains(output, "Bundled Lua Script") &&
-					!strings.Contains(output, "print(") // Should remove print statements
+				// In release mode:
+				// - Comments are removed (no "-- Bundled Lua Script")
+				// - Print statements are removed (no "print(")
+				// - Code is minified to single line
+				return !strings.Contains(output, "-- Bundled Lua Script") &&
+					!strings.Contains(output, "print(") &&
+					strings.Contains(output, "EmbeddedModules") // Should still have EmbeddedModules
 			},
 		},
 	}

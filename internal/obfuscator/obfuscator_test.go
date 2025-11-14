@@ -279,6 +279,303 @@ local value = Utils.getValue()`,
 				assert.Contains(t, result, "require(game.ServerStorage.Core)")
 			},
 		},
+		{
+			name: "Replace variable in require path but preserve module name",
+			code: `local Core = _core
+local ShopData = require(Core.ReplicatedStorage.Data.EventShopData)`,
+			check: func(t *testing.T, result string) {
+				// Both variable names should be obfuscated
+				assert.NotContains(t, result, "local Core =")
+				assert.NotContains(t, result, "local ShopData =")
+				assert.Contains(t, result, "local _0x")
+
+				// The variable "Core" in require path should be replaced
+				assert.NotContains(t, result, "require(Core.ReplicatedStorage")
+
+				// But the module name "EventShopData" should be preserved
+				assert.Contains(t, result, ".EventShopData)")
+
+				// Print the result for manual verification
+				t.Logf("Input:  local Core = _core\\nlocal ShopData = require(Core.ReplicatedStorage.Data.EventShopData)")
+				t.Logf("Output: %s", result)
+			},
+		},
+		{
+			name: "Complex scenario with variable used in require",
+			code: `local PetEggs = require(Core.ReplicatedStorage.Data.PetRegistry.PetEggs)
+local result = PetEggs.getAll()`,
+			check: func(t *testing.T, result string) {
+				// Variable name should be obfuscated
+				assert.NotContains(t, result, "local PetEggs =")
+
+				// Module name in require should be preserved
+				assert.Contains(t, result, ".PetEggs)")
+
+				// Usage of the variable should be obfuscated
+				assert.NotContains(t, result, "PetEggs.getAll")
+
+				t.Logf("Output: %s", result)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := obf.renameIdentifiers(tt.code)
+			tt.check(t, result)
+		})
+	}
+}
+
+func TestPreservePropertyAccess(t *testing.T) {
+	obf := NewObfuscator(2)
+
+	tests := []struct {
+		name  string
+		code  string
+		check func(t *testing.T, result string)
+	}{
+		{
+			name: "Preserve property names in object access",
+			code: `local Rarity = require(RarityModule)
+local data = {}
+local value = data.Rarity`,
+			check: func(t *testing.T, result string) {
+				// Variable name should be obfuscated
+				assert.NotContains(t, result, "local Rarity =")
+
+				// But property access should NOT be obfuscated
+				assert.Contains(t, result, ".Rarity")
+
+				t.Logf("Output: %s", result)
+			},
+		},
+		{
+			name: "Complex property access scenario",
+			code: `local items = SeasonPassShop:GetItemRepository()
+local sortedList = {}
+
+for itemName, data in pairs(items) do
+    data._name = itemName
+    table.insert(sortedList, data)
+end
+
+table.sort(sortedList, function(a, b)
+    local rarityA = Rarity.RarityOrder[a.Rarity] or 99
+    local rarityB = Rarity.RarityOrder[b.Rarity] or 99
+    
+    if rarityA == rarityB then
+        if a.LayoutOrder == b.LayoutOrder then
+            return a._name < b._name
+        else
+            return a.LayoutOrder < b.LayoutOrder
+        end
+    end
+    
+    return rarityA < rarityB
+end)`,
+			check: func(t *testing.T, result string) {
+				// Variables should be obfuscated
+				assert.NotContains(t, result, "local items =")
+				assert.NotContains(t, result, "local sortedList =")
+				assert.NotContains(t, result, "local rarityA =")
+				assert.NotContains(t, result, "local rarityB =")
+
+				// But property names should NOT be obfuscated
+				assert.Contains(t, result, ".Rarity")
+				assert.Contains(t, result, ".RarityOrder")
+				assert.Contains(t, result, ".LayoutOrder")
+				assert.Contains(t, result, "._name")
+
+				// Property access should preserve the property name
+				assert.Contains(t, result, "a.Rarity")
+				assert.Contains(t, result, "b.Rarity")
+				assert.Contains(t, result, "a.LayoutOrder")
+				assert.Contains(t, result, "b.LayoutOrder")
+				assert.Contains(t, result, "a._name")
+				assert.Contains(t, result, "b._name")
+
+				t.Logf("Output: %s", result)
+			},
+		},
+		{
+			name: "Property access in table literal",
+			code: `local data = getData()
+local rarity = data.Rarity or "Unknown"
+local name = data._name or "Unnamed"
+table.insert(itemNames, {text= "[" .. rarity .. "] " .. name, value=name})`,
+			check: func(t *testing.T, result string) {
+				// Variables should be obfuscated
+				assert.NotContains(t, result, "local rarity =")
+				assert.NotContains(t, result, "local name =")
+				assert.NotContains(t, result, "local data =")
+
+				// Property names should NOT be obfuscated
+				assert.Contains(t, result, ".Rarity")
+				assert.Contains(t, result, "._name")
+
+				t.Logf("Output: %s", result)
+			},
+		},
+		{
+			name: "Real world scenario from user",
+			code: `local items = SeasonPassShop:GetItemRepository()
+local sortedList = {}
+local itemNames = {}
+
+for itemName, data in pairs(items) do
+    data._name = itemName
+    table.insert(sortedList, data)
+end
+
+table.sort(sortedList, function(a, b)
+    local rarityA = Rarity.RarityOrder[a.Rarity] or 99
+    local rarityB = Rarity.RarityOrder[b.Rarity] or 99
+
+    if rarityA == rarityB then
+        if a.LayoutOrder == b.LayoutOrder then
+            return a._name < b._name
+        else
+            return a.LayoutOrder < b.LayoutOrder
+        end
+    end
+
+    return rarityA < rarityB
+end)
+
+for _, data in pairs(sortedList) do
+    local rarity = data.Rarity or "Unknown"
+    local name = data._name or "Unnamed"
+    table.insert(itemNames, {text= "[" .. rarity .. "] " .. name, value=name})
+end`,
+			check: func(t *testing.T, result string) {
+				// Variables should be obfuscated
+				assert.NotContains(t, result, "local items =")
+				assert.NotContains(t, result, "local sortedList =")
+				assert.NotContains(t, result, "local itemNames =")
+				assert.NotContains(t, result, "local rarityA =")
+				assert.NotContains(t, result, "local rarityB =")
+				assert.NotContains(t, result, "local rarity =")
+				assert.NotContains(t, result, "local name =")
+
+				// Property names should NOT be obfuscated - they should remain as is
+				// (the variable name before the dot will be obfuscated, but the property name after the dot should not)
+				assert.Contains(t, result, ".Rarity")
+				assert.Contains(t, result, ".LayoutOrder")
+				assert.Contains(t, result, "._name")
+				assert.Contains(t, result, ".RarityOrder")
+
+				// Specifically check that property access is preserved
+				assert.Contains(t, result, "a.Rarity")
+				assert.Contains(t, result, "b.Rarity")
+				assert.Contains(t, result, "a.LayoutOrder")
+				assert.Contains(t, result, "b.LayoutOrder")
+				assert.Contains(t, result, "a._name")
+				assert.Contains(t, result, "b._name")
+
+				t.Logf("Full Output:\n%s", result)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := obf.renameIdentifiers(tt.code)
+			tt.check(t, result)
+		})
+	}
+}
+
+func TestPreserveTableKeys(t *testing.T) {
+	obf := NewObfuscator(2)
+
+	tests := []struct {
+		name  string
+		code  string
+		check func(t *testing.T, result string)
+	}{
+		{
+			name: "Preserve table keys in constructor",
+			code: `local text = "Hello"
+local value = 123
+local obj = {text = text, value = value}`,
+			check: func(t *testing.T, result string) {
+				// Table keys should NOT be obfuscated
+				assert.Contains(t, result, "{text =")
+				assert.Contains(t, result, "value =")
+
+				// But the values (variable references) should be obfuscated when they match local vars
+				// Note: text and value are NOT obfuscated in declaration because regex doesn't match
+				// string/number literals on the right side
+
+				t.Logf("Output: %s", result)
+			},
+		},
+		{
+			name: "Preserve Button key in table",
+			code: `local Button = createButton()
+local result = {Button = Button}
+result.Button.MouseButton1Click:Connect(handler)`,
+			check: func(t *testing.T, result string) {
+				// Table key should NOT be obfuscated
+				assert.Contains(t, result, "{Button =")
+
+				// Property access should NOT be obfuscated
+				assert.Contains(t, result, ".Button.")
+				assert.Contains(t, result, ".MouseButton1Click")
+
+				t.Logf("Output: %s", result)
+			},
+		},
+		{
+			name: "Complex table constructor",
+			code: `local items = getData()
+table.insert(items, {text = "[Rare] Item", value = "item123"})`,
+			check: func(t *testing.T, result string) {
+				// Table keys should NOT be obfuscated
+				assert.Contains(t, result, "{text =")
+				assert.Contains(t, result, "value =")
+
+				t.Logf("Output: %s", result)
+			},
+		},
+		{
+			name: "Discord webhook nested tables",
+			code: `local content = "Hello"
+local title = "Test"
+local name = "Field"
+local value = "Data"
+local data = {
+	content = content,
+	embeds = {{
+		title = title,
+		type = 'rich',
+		color = tonumber("0xfa0c0c"),
+		fields = {{
+			name = name,
+			value = value,
+			inline = false
+		}}
+	}}
+}`,
+			check: func(t *testing.T, result string) {
+				// All table keys should NOT be obfuscated
+				assert.Contains(t, result, "content =")
+				assert.Contains(t, result, "embeds =")
+				assert.Contains(t, result, "title =")
+				assert.Contains(t, result, "type =")
+				assert.Contains(t, result, "color =")
+				assert.Contains(t, result, "fields =")
+				assert.Contains(t, result, "name =")
+				assert.Contains(t, result, "value =")
+				assert.Contains(t, result, "inline =")
+
+				// Variables on the left side of assignment should be obfuscated
+				assert.Contains(t, result, "local _0x")
+
+				t.Logf("Output: %s", result)
+			},
+		},
 	}
 
 	for _, tt := range tests {

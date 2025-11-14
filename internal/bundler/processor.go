@@ -123,6 +123,8 @@ func (b *Bundler) processFile(filePath string, content string) error {
 				return err
 			}
 
+			// Mark as HTTP module (do not obfuscate)
+			b.httpModules[url] = true
 			b.modules[url] = httpContent
 
 			// Process downloaded content (might have requires in it)
@@ -150,7 +152,14 @@ func (b *Bundler) processFile(filePath string, content string) error {
 					return fmt.Errorf("failed to read file %s: %w", resolvedPath, err)
 				}
 
-				b.modules[modulePath] = string(fileContent)
+				moduleContent := string(fileContent)
+
+				// Obfuscate local module if obfuscation is enabled
+				if b.obfuscateLevel > 0 && b.obfuscator != nil {
+					moduleContent = b.obfuscator.Obfuscate(moduleContent)
+				}
+
+				b.modules[modulePath] = moduleContent
 
 				if b.verbose {
 					fmt.Printf("📄 Processed: %s\n", modulePath)
