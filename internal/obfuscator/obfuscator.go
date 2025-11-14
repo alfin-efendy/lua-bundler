@@ -118,6 +118,11 @@ func (o *Obfuscator) renameIdentifiers(code string) string {
 	matches := localVarRegex.FindAllStringSubmatch(code, -1)
 	funcMatches := localFuncRegex.FindAllStringSubmatch(code, -1)
 
+	// Also capture identifiers from multi-line local declarations without assignment
+	// Pattern: lines starting with "local" followed by just identifier (no =, no function)
+	multiLineLocalRegex := regexp.MustCompile(`(?m)^\s*local\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*$`)
+	multiLineMatches := multiLineLocalRegex.FindAllStringSubmatch(code, -1)
+
 	// Reserved Lua keywords and Roblox globals that should not be renamed
 	reserved := map[string]bool{
 		// Lua keywords
@@ -167,6 +172,14 @@ func (o *Obfuscator) renameIdentifiers(code string) string {
 		}
 	}
 
+	// Add multi-line local declarations (e.g., "local Core" on its own line)
+	for _, match := range multiLineMatches {
+		identifier := match[1]
+		if !reserved[identifier] && o.identifierMap[identifier] == "" {
+			o.identifierMap[identifier] = o.generateObfuscatedName()
+		}
+	}
+
 	// Replace identifiers, but preserve them inside strings
 	// Split by strings first to avoid replacing inside string literals
 	result := o.replaceOutsideStrings(code, o.identifierMap)
@@ -207,29 +220,50 @@ func (o *Obfuscator) replaceOutsideStrings(code string, replacements map[string]
 				}
 			}
 		} else if o.isAtRequirePath(code, i) {
-			// We're at a require() call, preserve the path
-			// Find the opening parenthesis
-			for i < len(code) && code[i] != '(' {
+			// We're at a require() call
+			// Write "require"
+			result.WriteString("require")
+			i += 7
+
+			// Skip whitespace and find the opening parenthesis
+			for i < len(code) && (code[i] == ' ' || code[i] == '\t') {
 				result.WriteByte(code[i])
 				i++
 			}
-			if i < len(code) {
+
+			if i < len(code) && code[i] == '(' {
 				result.WriteByte(code[i]) // Write '('
 				i++
-			}
 
-			// Copy everything inside require() without replacing identifiers
-			parenDepth := 1
-			for i < len(code) && parenDepth > 0 {
-				if code[i] == '(' {
-					parenDepth++
-					result.WriteByte(code[i])
-					i++
-				} else if code[i] == ')' {
-					parenDepth--
-					result.WriteByte(code[i])
-					i++
-				} else {
+				// Process the content inside require()
+				// We need to replace variables but preserve the last component (file/module name)
+				parenDepth := 1
+				requireContent := strings.Builder{}
+
+				// Collect everything inside require()
+				for i < len(code) && parenDepth > 0 {
+					if code[i] == '(' {
+						parenDepth++
+						requireContent.WriteByte(code[i])
+						i++
+					} else if code[i] == ')' {
+						parenDepth--
+						if parenDepth > 0 {
+							requireContent.WriteByte(code[i])
+							i++
+						}
+					} else {
+						requireContent.WriteByte(code[i])
+						i++
+					}
+				}
+
+				// Process the require content to preserve only the last component
+				processedContent := o.processRequireContent(requireContent.String(), replacements)
+				result.WriteString(processedContent)
+
+				// Write the closing parenthesis
+				if i < len(code) && code[i] == ')' {
 					result.WriteByte(code[i])
 					i++
 				}
@@ -245,7 +279,15 @@ func (o *Obfuscator) replaceOutsideStrings(code string, replacements map[string]
 					isWordBoundaryBefore := i == 0 || !isAlphaNumOrUnderscore(code[i-1])
 					isWordBoundaryAfter := i+len(original) >= len(code) || !isAlphaNumOrUnderscore(code[i+len(original)])
 
-					if isWordBoundaryBefore && isWordBoundaryAfter {
+					// Don't replace if this is a property access (preceded by a dot)
+					// This prevents replacing identifiers in expressions like "data.Rarity" or "obj.propertyName"
+					isPropertyAccess := i > 0 && code[i-1] == '.'
+
+					// Don't replace if this is a table key (identifier followed = in a table constructor)
+					// This prevents replacing table keys like in {text = "value", Button = obj}
+					isTableKeyResult := o.isTableKey(code, i, i+len(original))
+
+					if isWordBoundaryBefore && isWordBoundaryAfter && !isPropertyAccess && !isTableKeyResult {
 						result.WriteString(replacement)
 						i += len(original)
 						foundReplacement = true
@@ -282,6 +324,132 @@ func (o *Obfuscator) isAtRequirePath(code string, pos int) bool {
 		return false
 	}
 	return true
+}
+
+// isTableKey checks if the identifier at the given position is a table key
+// (i.e., it's followed by = and we're inside a table constructor)
+func (o *Obfuscator) isTableKey(code string, startPos, currentPos int) bool {
+	pos := currentPos
+
+	// Skip whitespace after the identifier
+	for pos < len(code) && (code[pos] == ' ' || code[pos] == '\t' || code[pos] == '\n' || code[pos] == '\r') {
+		pos++
+	}
+
+	// Check if followed by = (table key assignment)
+	// NOTE: We do NOT check for : here because:
+	// - Core:Method() is a method call (should be obfuscated)
+	// - {key: value} is rare Lua 5.2+ syntax not commonly used
+	if pos >= len(code) || code[pos] != '=' {
+		return false
+	}
+
+	// Make sure it's not ==, <=, >=, ~=
+	if code[pos] == '=' {
+		if pos+1 < len(code) && code[pos+1] == '=' {
+			return false
+		}
+		// Check if it's preceded by <, >, ~
+		if pos > 0 && (code[pos-1] == '<' || code[pos-1] == '>' || code[pos-1] == '~') {
+			return false
+		}
+	}
+
+	// Now check if we're inside a table constructor by looking backwards
+	// We need to find an opening { before we find a closing } or statement boundary
+	braceDepth := 0
+	parenDepth := 0
+
+	for i := startPos - 1; i >= 0; i-- {
+		ch := code[i]
+
+		// Track parentheses depth
+		if ch == ')' {
+			parenDepth++
+		} else if ch == '(' {
+			parenDepth--
+		}
+
+		// Track brace depth
+		if ch == '}' {
+			braceDepth++
+		} else if ch == '{' {
+			if braceDepth == 0 {
+				// Found an unmatched opening brace, we're in a table constructor
+				return true
+			}
+			braceDepth--
+		}
+
+		// Only check for statement boundaries when we're at the outermost level (not inside any braces/parens)
+		if braceDepth == 0 && parenDepth == 0 {
+			// Check for 'local' keyword which indicates variable declaration
+			if i >= 4 {
+				startIdx := i - 4
+				if startIdx < 0 {
+					startIdx = 0
+				}
+				if i+1 <= len(code) && code[startIdx:i+1] == "local" {
+					// Make sure 'local' has word boundary before it
+					if startIdx == 0 || !isAlphaNumOrUnderscore(code[startIdx-1]) {
+						// Make sure 'local' is followed by whitespace
+						if i+1 >= len(code) || !isAlphaNumOrUnderscore(code[i+1]) {
+							// We found 'local' at the same level - this is variable declaration, not table key
+							return false
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// processRequireContent processes the content inside require() to replace variables
+// but preserve the last component (module/file name)
+func (o *Obfuscator) processRequireContent(content string, replacements map[string]string) string {
+	content = strings.TrimSpace(content)
+
+	// Handle string literals in require - don't process them
+	if strings.HasPrefix(content, "\"") || strings.HasPrefix(content, "'") {
+		return content
+	}
+
+	// Split by dots to get path components
+	// We need to be careful about nested parentheses or function calls
+	parts := strings.Split(content, ".")
+	if len(parts) == 0 {
+		return content
+	}
+
+	// Process each part except the last one (which is the module/file name)
+	var processedParts []string
+	for i, part := range parts {
+		part = strings.TrimSpace(part)
+
+		// Last component (module/file name) should not be replaced
+		if i == len(parts)-1 {
+			processedParts = append(processedParts, part)
+			continue
+		}
+
+		// For other parts, try to replace with obfuscated name
+		replaced := false
+		for original, replacement := range replacements {
+			if part == original {
+				processedParts = append(processedParts, replacement)
+				replaced = true
+				break
+			}
+		}
+
+		if !replaced {
+			processedParts = append(processedParts, part)
+		}
+	}
+
+	return strings.Join(processedParts, ".")
 }
 
 // isAlphaNumOrUnderscore checks if a character is alphanumeric or underscore

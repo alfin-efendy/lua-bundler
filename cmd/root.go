@@ -6,7 +6,6 @@ import (
 
 	"github.com/alfin-efendy/lua-bundler/internal/bundler"
 	httpserver "github.com/alfin-efendy/lua-bundler/internal/http"
-	"github.com/alfin-efendy/lua-bundler/internal/obfuscator"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
@@ -115,19 +114,17 @@ var rootCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// Set obfuscation level (will be applied per-module during bundling for local files only)
+		if obfuscateLevel > 0 {
+			b.SetObfuscationLevel(obfuscateLevel)
+		}
+
 		// Bundle
 		fmt.Println(infoStyle.Render("🔄 Processing dependencies..."))
 		result, err := b.Bundle(release)
 		if err != nil {
 			fmt.Println(errorStyle.Render(fmt.Sprintf("❌ Bundling failed: %v", err)))
 			os.Exit(1)
-		}
-
-		// Apply obfuscation if enabled
-		if obfuscateLevel > 0 {
-			fmt.Println(infoStyle.Render("🔒 Applying obfuscation..."))
-			obf := obfuscator.NewObfuscator(obfuscateLevel)
-			result = obf.Obfuscate(result)
 		}
 
 		// Write output
