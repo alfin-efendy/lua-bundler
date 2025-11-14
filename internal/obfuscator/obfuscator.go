@@ -174,7 +174,7 @@ func (o *Obfuscator) renameIdentifiers(code string) string {
 	return result
 }
 
-// replaceOutsideStrings replaces identifiers only outside of string literals
+// replaceOutsideStrings replaces identifiers only outside of string literals and require paths
 func (o *Obfuscator) replaceOutsideStrings(code string, replacements map[string]string) string {
 	var result strings.Builder
 	i := 0
@@ -201,6 +201,34 @@ func (o *Obfuscator) replaceOutsideStrings(code string, replacements map[string]
 					result.WriteByte(code[i])
 					i++
 					break
+				} else {
+					result.WriteByte(code[i])
+					i++
+				}
+			}
+		} else if o.isAtRequirePath(code, i) {
+			// We're at a require() call, preserve the path
+			// Find the opening parenthesis
+			for i < len(code) && code[i] != '(' {
+				result.WriteByte(code[i])
+				i++
+			}
+			if i < len(code) {
+				result.WriteByte(code[i]) // Write '('
+				i++
+			}
+
+			// Copy everything inside require() without replacing identifiers
+			parenDepth := 1
+			for i < len(code) && parenDepth > 0 {
+				if code[i] == '(' {
+					parenDepth++
+					result.WriteByte(code[i])
+					i++
+				} else if code[i] == ')' {
+					parenDepth--
+					result.WriteByte(code[i])
+					i++
 				} else {
 					result.WriteByte(code[i])
 					i++
@@ -234,6 +262,26 @@ func (o *Obfuscator) replaceOutsideStrings(code string, replacements map[string]
 	}
 
 	return result.String()
+}
+
+// isAtRequirePath checks if the current position is at the start of a require() call
+func (o *Obfuscator) isAtRequirePath(code string, pos int) bool {
+	// Check if we're at "require"
+	if pos+7 > len(code) {
+		return false
+	}
+	if code[pos:pos+7] != "require" {
+		return false
+	}
+	// Check word boundary before
+	if pos > 0 && isAlphaNumOrUnderscore(code[pos-1]) {
+		return false
+	}
+	// Check word boundary after
+	if pos+7 < len(code) && isAlphaNumOrUnderscore(code[pos+7]) {
+		return false
+	}
+	return true
 }
 
 // isAlphaNumOrUnderscore checks if a character is alphanumeric or underscore

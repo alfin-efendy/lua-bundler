@@ -221,3 +221,70 @@ end
 	assert.Contains(t, result, "function")
 	assert.Contains(t, result, "return")
 }
+
+func TestRenameIdentifiersPreserveRequirePaths(t *testing.T) {
+	obf := NewObfuscator(2)
+
+	tests := []struct {
+		name  string
+		code  string
+		check func(t *testing.T, result string)
+	}{
+		{
+			name: "Preserve path in require statement",
+			code: `local PetEggs = require(Core.ReplicatedStorage.Data.PetRegistry.PetEggs)`,
+			check: func(t *testing.T, result string) {
+				// Variable name should be obfuscated
+				assert.NotContains(t, result, "local PetEggs =")
+				assert.Contains(t, result, "local _0x")
+
+				// But the path in require() should preserve "PetEggs"
+				assert.Contains(t, result, "require(Core.ReplicatedStorage.Data.PetRegistry.PetEggs)")
+
+				// The entire path should remain intact
+				assert.Contains(t, result, "Core.ReplicatedStorage.Data.PetRegistry.PetEggs")
+
+				// Print the result for manual verification
+				t.Logf("Input:  %s", `local PetEggs = require(Core.ReplicatedStorage.Data.PetRegistry.PetEggs)`)
+				t.Logf("Output: %s", result)
+			},
+		},
+		{
+			name: "Preserve complex require path",
+			code: `local MyModule = require(game.ReplicatedStorage.Modules.MyModule)
+local result = MyModule.doSomething()`,
+			check: func(t *testing.T, result string) {
+				// Variable name should be obfuscated
+				assert.NotContains(t, result, "local MyModule =")
+
+				// But the module name in require path should be preserved
+				assert.Contains(t, result, "require(game.ReplicatedStorage.Modules.MyModule)")
+
+				// Usage of the variable should be obfuscated
+				assert.NotContains(t, result, "MyModule.doSomething")
+			},
+		},
+		{
+			name: "Multiple requires with same name",
+			code: `local Utils = require(script.Parent.Utils)
+local Core = require(game.ServerStorage.Core)
+local value = Utils.getValue()`,
+			check: func(t *testing.T, result string) {
+				// Variable names should be obfuscated
+				assert.NotContains(t, result, "local Utils =")
+				assert.NotContains(t, result, "local Core =")
+
+				// But require paths should preserve original names
+				assert.Contains(t, result, "require(script.Parent.Utils)")
+				assert.Contains(t, result, "require(game.ServerStorage.Core)")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := obf.renameIdentifiers(tt.code)
+			tt.check(t, result)
+		})
+	}
+}
