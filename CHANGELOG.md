@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.8.3](https://github.com/alfin-efendy/lua-bundler/compare/v1.8.2...v1.8.3) (2025-11-14)
+
+### 🐛 Bug Fixes
+
+* improve obfuscation logic to preserve module names and enhance identifier handling ([b5c93a2](https://github.com/alfin-efendy/lua-bundler/commit/b5c93a213d0a3948546d6dbed6d5e3260d555940))
+* update release mode checks to ensure comments and print statements are removed while preserving EmbeddedModules ([4a948e0](https://github.com/alfin-efendy/lua-bundler/commit/4a948e009641e3e1ce21ec99d0d270ce52fe6da2))
+
 ## [1.8.2](https://github.com/alfin-efendy/lua-bundler/compare/v1.8.1...v1.8.2) (2025-11-14)
 
 ### 🐛 Bug Fixes
