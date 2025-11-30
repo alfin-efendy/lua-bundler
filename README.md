@@ -358,6 +358,55 @@ loadstring(game:HttpGet("http://localhost:8080/bundle.lua"))()
 
 **Note**: For production, you should host your bundled files on a public server. The built-in HTTP server is primarily for development and testing purposes.
 
+### 🎯 Smart HttpGet Bundling
+
+Lua Bundler intelligently determines which `loadstring(game:HttpGet(...))()` calls should be bundled and which should remain unchanged.
+
+#### Bundling Behavior
+
+**✅ BUNDLED** - Standalone HttpGet calls:
+```lua
+-- These are embedded into the bundle
+local RemoteLib = loadstring(game:HttpGet('https://example.com/lib.lua'))()
+local UI = loadstring(game:HttpGet('https://cdn.example.com/ui.lua'))()
+```
+
+**❌ NOT BUNDLED** - HttpGet inside function calls:
+```lua
+-- These remain unchanged (not bundled)
+queue_on_teleport("loadstring(game:HttpGet('https://example.com/loader.lua'))()")
+syn.queue_on_teleport("loadstring(game:HttpGet('https://cdn.example.com/script.lua'))()")
+task.spawn("loadstring(game:HttpGet('https://example.com/async.lua'))()")
+```
+
+#### Why This Matters
+
+Some Roblox functions like `queue_on_teleport` require the HttpGet URL as a string parameter to execute later. Bundling these would break the functionality since they need to dynamically load the script at execution time.
+
+**Example - Safe Usage:**
+```lua
+-- This lib will be bundled
+local MyLib = loadstring(game:HttpGet('https://example.com/mylib.lua'))()
+
+-- This will NOT be bundled (stays as-is for proper teleport handling)
+queue_on_teleport("loadstring(game:HttpGet('https://example.com/loader.lua'))()")
+
+MyLib.initialize()
+```
+
+**Bundled Output:**
+```lua
+-- MyLib is embedded in EmbeddedModules
+local MyLib = loadModule("https://example.com/mylib.lua")
+
+-- This line remains unchanged
+queue_on_teleport("loadstring(game:HttpGet('https://example.com/loader.lua'))()")
+
+MyLib.initialize()
+```
+
+This smart detection ensures your scripts work correctly in all scenarios!
+
 ### 🔒 Code Obfuscation
 
 Lua Bundler includes a powerful 3-level obfuscation system to protect your code:
