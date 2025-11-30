@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.9.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.8.3...v1.9.0) (2025-11-30)
+
+### 🚀 Features
+
+* add smart HttpGet bundling logic and tests to preserve function call integrity ([552757e](https://github.com/alfin-efendy/lua-bundler/commit/552757efc672e3e2037781cffc94cea2984511e4))
+
 ## [1.8.3](https://github.com/alfin-efendy/lua-bundler/compare/v1.8.2...v1.8.3) (2025-11-14)
 
 ### 🐛 Bug Fixes
