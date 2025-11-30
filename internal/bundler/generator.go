@@ -60,18 +60,29 @@ func (b *Bundler) generateBundle(mainContent string) string {
 func (b *Bundler) replaceModuleCalls(content string) string {
 	requireRegex := regexp.MustCompile(`require\s*\(\s*['"]([^'"]+)['"]\s*\)`)
 	httpGetRegex := regexp.MustCompile(`loadstring\s*\(\s*game:HttpGet\s*\(\s*['"]([^'"]+)['"]\s*\)\s*\)\s*\(\s*\)`)
+	// Pattern to detect HttpGet inside function calls (should NOT be replaced)
+	funcCallHttpGetRegex := regexp.MustCompile(`\w+\s*\([^)]*loadstring\s*\(\s*game:HttpGet`)
 
 	processedContent := content
 
-	// Replace loadstring(game:HttpGet(...))()
-	processedContent = httpGetRegex.ReplaceAllStringFunc(processedContent, func(match string) string {
-		matches := httpGetRegex.FindStringSubmatch(match)
-		if len(matches) > 1 {
-			url := matches[1]
-			return fmt.Sprintf("loadModule(\"%s\")", escapeString(url))
+	// Replace loadstring(game:HttpGet(...))() - but skip if inside function calls
+	lines := strings.Split(processedContent, "\n")
+	for i, line := range lines {
+		// Skip lines with HttpGet inside function calls
+		if funcCallHttpGetRegex.MatchString(line) {
+			continue
 		}
-		return match
-	})
+		// Replace HttpGet pattern in this line
+		lines[i] = httpGetRegex.ReplaceAllStringFunc(line, func(match string) string {
+			matches := httpGetRegex.FindStringSubmatch(match)
+			if len(matches) > 1 {
+				url := matches[1]
+				return fmt.Sprintf("loadModule(\"%s\")", escapeString(url))
+			}
+			return match
+		})
+	}
+	processedContent = strings.Join(lines, "\n")
 
 	// Replace require() for local files
 	processedContent = requireRegex.ReplaceAllStringFunc(processedContent, func(match string) string {
