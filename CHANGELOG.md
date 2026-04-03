@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.10.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.9.0...v1.10.0) (2026-04-03)
+
+### 🚀 Features
+
+* add environment variable support for Lua bundling ([d8a5161](https://github.com/alfin-efendy/lua-bundler/commit/d8a51618c05def4964d2eee6cf6462851dda340d))
+
 ## [1.9.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.8.3...v1.9.0) (2025-11-30)
 
 ### 🚀 Features
