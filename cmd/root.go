@@ -70,6 +70,7 @@ var rootCmd = &cobra.Command{
 		serve, _ := cmd.Flags().GetBool("serve")
 		port, _ := cmd.Flags().GetInt("port")
 		noCache, _ := cmd.Flags().GetBool("no-cache")
+		envFile, _ := cmd.Flags().GetString("env-file")
 
 		if entryFile == "" {
 			fmt.Println(errorStyle.Render("❌ Entry file is required"))
@@ -105,6 +106,11 @@ var rootCmd = &cobra.Command{
 		} else {
 			fmt.Printf("  HTTP Cache: %s\n", infoStyle.Render("Enabled"))
 		}
+		if envFile != "" {
+			fmt.Printf("  Env File: %s\n", infoStyle.Render(envFile))
+		} else {
+			fmt.Printf("  Env File: %s\n", infoStyle.Render(".env (default, if present)"))
+		}
 		fmt.Println()
 
 		// Create bundler
@@ -118,6 +124,14 @@ var rootCmd = &cobra.Command{
 		if obfuscateLevel > 0 {
 			b.SetObfuscationLevel(obfuscateLevel)
 		}
+
+		// Load env vars for {{VAR_NAME}} substitution
+		envVars, err := bundler.BuildEnvVars(envFile)
+		if err != nil {
+			fmt.Println(errorStyle.Render(fmt.Sprintf("❌ Failed to load env file: %v", err)))
+			os.Exit(1)
+		}
+		b.SetEnvVars(envVars)
 
 		// Bundle
 		fmt.Println(infoStyle.Render("🔄 Processing dependencies..."))
@@ -192,4 +206,5 @@ func init() {
 	rootCmd.Flags().BoolP("serve", "s", false, "Start HTTP server to serve the output file")
 	rootCmd.Flags().IntP("port", "p", 8080, "Port for HTTP server (used with --serve)")
 	rootCmd.Flags().BoolP("no-cache", "n", false, "Disable HTTP cache for remote scripts")
+	rootCmd.Flags().String("env-file", "", "Path to .env file for {{VAR_NAME}} substitution (default: .env in working dir)")
 }
