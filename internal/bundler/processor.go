@@ -130,6 +130,9 @@ func (b *Bundler) processFile(filePath string, content string) error {
 				return err
 			}
 
+			// Apply env var substitution to HTTP module content
+			httpContent = substituteEnvVars(httpContent, b.envVars, b.verbose)
+
 			// Mark as HTTP module (do not obfuscate)
 			b.httpModules[url] = true
 			b.modules[url] = httpContent
@@ -160,6 +163,9 @@ func (b *Bundler) processFile(filePath string, content string) error {
 				}
 
 				moduleContent := string(fileContent)
+
+				// Apply env var substitution before obfuscation
+				moduleContent = substituteEnvVars(moduleContent, b.envVars, b.verbose)
 
 				// Obfuscate local module if obfuscation is enabled
 				if b.obfuscateLevel > 0 && b.obfuscator != nil {

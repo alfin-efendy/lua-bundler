@@ -11,8 +11,8 @@ A powerful Lua script bundler specifically designed for Roblox development. Auto
 
 - 🔄 **Dependency Resolution**: Automatically resolves local `require()` statements
 - 🌐 **HTTP Support**: Bundles `loadstring(game:HttpGet(...))()` patterns  
-- � **Smart Caching**: Automatic caching of HTTP scripts with 24-hour expiry
-- �📁 **Complex Paths**: Handles relative paths, subdirectories, and parent directories
+- 🧠 **Smart Caching**: Automatic caching of HTTP scripts with 24-hour expiry
+- 📁 **Complex Paths**: Handles relative paths, subdirectories, and parent directories
 - 🚀 **Release Mode**: Removes debug statements (`print`, `warn`) for production
 - 🔒 **Code Obfuscation**: 3-level obfuscation system to protect your code
 - 🖥️ **HTTP Server**: Serve bundled files via HTTP for easy Roblox integration

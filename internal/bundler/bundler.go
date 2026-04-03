@@ -21,6 +21,7 @@ type Bundler struct {
 	verbose        bool
 	obfuscator     *obfuscator.Obfuscator
 	obfuscateLevel int
+	envVars        map[string]string // env var substitutions for {{VAR_NAME}}
 }
 
 func NewBundler(entryFile string, verbose bool, useCache bool) (*Bundler, error) {
@@ -50,7 +51,13 @@ func NewBundler(entryFile string, verbose bool, useCache bool) (*Bundler, error)
 		cache:          c,
 		verbose:        verbose,
 		obfuscateLevel: 0,
+		envVars:        make(map[string]string),
 	}, nil
+}
+
+// SetEnvVars sets the environment variable map used for {{VAR_NAME}} substitution.
+func (b *Bundler) SetEnvVars(vars map[string]string) {
+	b.envVars = vars
 }
 
 // SetObfuscationLevel sets the obfuscation level for local modules
@@ -69,6 +76,9 @@ func (b *Bundler) Bundle(releaseMode bool) (string, error) {
 	}
 
 	mainContent := string(content)
+
+	// Apply env var substitution to entry file
+	mainContent = substituteEnvVars(mainContent, b.envVars, b.verbose)
 
 	// Process all dependencies
 	if b.verbose {
