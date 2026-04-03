@@ -550,7 +550,7 @@ lua-bundler -entry main.lua -output bundle.lua --release --obfuscate 2
 ## 🛠️ Development
 
 ### Prerequisites
-- Go 1.24+
+- Go 1.25+
 - Make (optional, for convenience)
 
 ### Development Workflow

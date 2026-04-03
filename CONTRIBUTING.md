@@ -53,7 +53,7 @@ When you create a PR, the following validations run automatically:
    cd lua-bundler
    ```
 
-2. **Install Go 1.24+**
+2. **Install Go 1.25+**
    - Download from [golang.org](https://golang.org/dl/)
 
 3. **Install development dependencies**
@@ -174,7 +174,7 @@ feat!: change CLI flags to use single dash format
 docs: add installation instructions for macOS
 test: add comprehensive bundler unit tests
 perf: optimize module resolution algorithm
-chore: update Go version to 1.24
+chore: update Go version to 1.25
 ```
 
 #### Bad Examples ❌
