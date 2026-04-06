@@ -18,7 +18,7 @@ jobs:
     name: Update Homebrew Tap
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
     - name: Get release info
       id: release_info
@@ -68,7 +68,7 @@ jobs:
         echo "linux_arm64_sha256=$LINUX_ARM64_SHA256" >> $GITHUB_OUTPUT
 
     - name: Checkout Homebrew tap repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         repository: alfin-efendy/homebrew-tap
         token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
