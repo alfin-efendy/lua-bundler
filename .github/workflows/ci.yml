@@ -129,7 +129,7 @@ jobs:
     - uses: actions/checkout@v6
 
     - name: Download Linux binary
-      uses: actions/download-artifact@v5
+      uses: actions/download-artifact@v8
       with:
         name: ${{ env.BINARY_NAME }}-linux-amd64
         path: ./
