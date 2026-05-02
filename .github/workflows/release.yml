@@ -124,7 +124,7 @@ jobs:
         sha256sum "${BINARY_NAME}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}" > "${BINARY_NAME}-${{ matrix.goos }}-${{ matrix.goarch }}.sha256"
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ env.BINARY_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
         path: |
