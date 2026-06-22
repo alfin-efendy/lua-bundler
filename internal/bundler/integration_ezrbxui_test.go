@@ -37,6 +37,9 @@ func TestBundle_EzRbxUI_Integration(t *testing.T) {
 	normal, err := bn.Bundle(false)
 	require.NoError(t, err)
 
+	// These assertions track the pinned ez-rbx-ui submodule (currently 35 modules:
+	// 13 core + 22 components). Bumping the submodule may require updating the
+	// representative keys or the >=30 floor below.
 	modules := bn.GetModules()
 	for _, key := range []string{"core/theme", "core/signal", "components/button", "components/slider"} {
 		assert.Contains(t, modules, key, "expected module %q to be embedded", key)
