@@ -78,16 +78,17 @@ func minifyCode(content string) string {
 	tokens := lex(content)
 
 	var b strings.Builder
-	prev := ""
-	for _, t := range tokens {
+	var prev *token
+	for i := range tokens {
+		t := &tokens[i]
 		if t.kind == tkComment {
 			continue // drop comments
 		}
-		if prev != "" && needsSpace(prev, t.text) {
+		if prev != nil && needsSpace(*prev, *t) {
 			b.WriteByte(' ')
 		}
 		b.WriteString(t.text)
-		prev = t.text
+		prev = t
 	}
 	return b.String()
 }
@@ -107,15 +108,21 @@ var mergePairs = map[string]bool{
 	"<<": true, ">>": true, "//": true, "::": true,
 }
 
-// needsSpace reports whether a separating space is required between already-
-// emitted token text a and the next token text b so that re-lexing yields the
-// same two tokens.
-func needsSpace(a, b string) bool {
+// needsSpace reports whether a separating space is required between the already-
+// emitted token prev and the next token cur so that re-lexing yields the same
+// two tokens.
+func needsSpace(prev, cur token) bool {
+	a, b := prev.text, cur.text
 	if a == "" || b == "" {
 		return false
 	}
 	la, fb := a[len(a)-1], b[0]
 	if isWordChar(la) && isWordChar(fb) {
+		return true
+	}
+	// A number directly followed by '.' would re-lex into a single (malformed)
+	// number token, e.g. `1 .. 2` -> `1..2`. Keep them separated.
+	if prev.kind == tkNumber && fb == '.' {
 		return true
 	}
 	return mergePairs[string([]byte{la, fb})]

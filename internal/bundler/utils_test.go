@@ -214,6 +214,9 @@ func TestMinifyCode(t *testing.T) {
 		{"not-equal operator", `if a ~= b then end`, `if a~=b then end`},
 		{"line comment dropped", "local x = 1 -- comment\nprint(x)", `local x=1 print(x)`},
 		{"block comment dropped", `local x = 1 --[[c]] print(x)`, `local x=1 print(x)`},
+		{"number concat needs space", `local a = 1 .. 2`, `local a=1 ..2`},
+		{"hex number concat needs space", `local a = 0xFF .. b`, `local a=0xFF ..b`},
+		{"field access not over-spaced", `local a = t.field`, `local a=t.field`},
 	}
 
 	for _, tt := range tests {

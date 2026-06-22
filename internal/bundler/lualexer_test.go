@@ -59,6 +59,11 @@ func TestLex(t *testing.T) {
 			want: []token{{tkComment, `--[[ c ]]`}},
 		},
 		{
+			name: "block comment nonzero level",
+			src:  `--[==[ c ]==]`,
+			want: []token{{tkComment, `--[==[ c ]==]`}},
+		},
+		{
 			name: "numbers hex float exp dotlead",
 			src:  "0xFF 1.5 1e3 .5",
 			want: []token{
