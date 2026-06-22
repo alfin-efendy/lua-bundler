@@ -1,5 +1,5 @@
 -- Main entry point
-local EzUI = loadstring(game:HttpGet('https://raw.githubusercontent.com/alfin-efendy/ez-rbx-ui/refs/heads/main/ui.lua'))()
+local EzUI = loadstring(game:HttpGet('https://github.com/alfin-efendy/ez-rbx-ui/releases/latest/download/ez-rbx-ui.lua'))()
 
 local CoreModule = require('../core.lua')
 local FancyPrint = require('./utils/fancy_print.lua')

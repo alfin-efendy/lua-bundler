@@ -28,7 +28,7 @@ YELLOW=\033[1;33m
 RED=\033[0;31m
 NC=\033[0m # No Color
 
-.PHONY: all build clean test run help install deps fmt vet lint check release example
+.PHONY: all build clean test run help install deps fmt vet lint check release example verify-ezui
 
 # Show help
 help:
@@ -61,6 +61,8 @@ deps:
 	@echo "$(GREEN)Downloading dependencies...$(NC)"
 	go mod download
 	go mod tidy
+	@echo "$(GREEN)Initializing git submodules...$(NC)"
+	git submodule update --init --recursive
 
 # Format code
 fmt:
@@ -168,6 +170,23 @@ example: build
 		echo "$(RED)Entry file $(ENTRY_FILE) not found!$(NC)"; \
 		exit 1; \
 	fi
+
+# Bundle the ez-rbx-ui submodule in release mode and run it under ez-rbx-ui's
+# Roblox-faithful harness (loads + mocks Roblox + exercises CreateWindow). This
+# is the runtime regression guard for the minifier.
+verify-ezui: build
+	@echo "$(GREEN)Verifying ez-rbx-ui --release bundle under mocked Roblox...$(NC)"
+	@if [ ! -f testdata/ez-rbx-ui/main.lua ]; then \
+		echo "$(YELLOW)Submodule missing — run: git submodule update --init --recursive$(NC)"; \
+		exit 1; \
+	fi
+	@command -v lua5.1 >/dev/null 2>&1 || { echo "$(YELLOW)lua5.1 not found on PATH$(NC)"; exit 1; }
+	@mkdir -p testdata/ez-rbx-ui/output
+	@BIN="$(CURDIR)/$(BUILD_DIR)/$(BINARY_NAME)"; \
+	cd testdata/ez-rbx-ui && \
+	"$$BIN" -e main.lua -o output/bundle.lua --release && \
+	lua5.1 scripts/verify_bundle.lua
+	@echo "$(GREEN)ez-rbx-ui --release bundle verified!$(NC)"
 
 # Create release build (optimized)
 release: check

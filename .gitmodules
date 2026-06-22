@@ -1,0 +1,3 @@
+[submodule "testdata/ez-rbx-ui"]
+	path = testdata/ez-rbx-ui
+	url = https://github.com/alfin-efendy/ez-rbx-ui

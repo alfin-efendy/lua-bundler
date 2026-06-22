@@ -105,11 +105,6 @@ func (b *Bundler) Bundle(releaseMode bool) (string, error) {
 		bundleOutput = removeDebugStatements(bundleOutput)
 
 		if b.verbose {
-			fmt.Println("  - Removing comments...")
-		}
-		bundleOutput = removeComments(bundleOutput)
-
-		if b.verbose {
 			fmt.Println("  - Minifying to single line...")
 		}
 		bundleOutput = minifyCode(bundleOutput)
