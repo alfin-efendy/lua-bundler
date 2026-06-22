@@ -61,6 +61,8 @@ deps:
 	@echo "$(GREEN)Downloading dependencies...$(NC)"
 	go mod download
 	go mod tidy
+	@echo "$(GREEN)Initializing git submodules...$(NC)"
+	git submodule update --init --recursive
 
 # Format code
 fmt:
