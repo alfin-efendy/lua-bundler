@@ -169,3 +169,27 @@ func TestGetModules(t *testing.T) {
 	assert.Len(t, modules, 1, "GetModules() should return map with 1 item")
 	assert.Equal(t, "content", modules["test"], "GetModules() should return correct content")
 }
+
+func TestBundle_ReleasePreservesStringLiterals(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "bundler-strlit-test")
+	require.NoError(t, err, "Failed to create temp dir")
+	defer os.RemoveAll(tempDir)
+
+	mainFile := filepath.Join(tempDir, "main.lua")
+	mainContent := `-- keep the type guard intact
+local x = "function"
+local ok = type(x) == "function"
+return ok
+`
+	require.NoError(t, os.WriteFile(mainFile, []byte(mainContent), 0644), "write main file")
+
+	b, err := NewBundler(mainFile, false, false)
+	require.NoError(t, err, "NewBundler() should not fail")
+
+	out, err := b.Bundle(true)
+	require.NoError(t, err, "Bundle() should not return error")
+
+	assert.Contains(t, out, `"function"`, "string literal must be preserved")
+	assert.NotContains(t, out, `"function "`, "minifier must not inject a space inside the string literal")
+	assert.NotContains(t, out, "-- keep the type guard", "release mode should strip comments")
+}
