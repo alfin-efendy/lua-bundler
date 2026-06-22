@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.10.1](https://github.com/alfin-efendy/lua-bundler/compare/v1.10.0...v1.10.1) (2026-06-22)
+
+### 🐛 Bug Fixes
+
+* add Lua lexer for string-aware minification ([7d01055](https://github.com/alfin-efendy/lua-bundler/commit/7d0105538fed41c910ab57793a59d384e7afb2cf))
+* keep space between number and concat to avoid malformed number ([5b0080d](https://github.com/alfin-efendy/lua-bundler/commit/5b0080d1b49243c7d780501d36a023c385008a63))
+* point example to current ez-rbx-ui release asset URL ([009b93c](https://github.com/alfin-efendy/lua-bundler/commit/009b93c099a66d3b395f4562ed53cc62b98d82b5))
+* stop minifier corrupting string literals with keyword spacing ([fa777f5](https://github.com/alfin-efendy/lua-bundler/commit/fa777f544a65635f0718da38a781de6155c1a771))
+
+### ♻️ Code Refactoring
+
+* drop redundant removeComments now handled by minifyCode ([adcc36e](https://github.com/alfin-efendy/lua-bundler/commit/adcc36ebfa9044053436c04a649e2d24e84679ab))
+
 ## [1.10.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.9.0...v1.10.0) (2026-04-03)
 
 ### 🚀 Features
