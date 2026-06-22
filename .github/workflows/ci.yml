@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
+      with:
+        submodules: recursive
 
     - name: Set up Go
       uses: actions/setup-go@v6
@@ -127,6 +129,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
+      with:
+        submodules: recursive
 
     - name: Download Linux binary
       uses: actions/download-artifact@v8
@@ -192,11 +196,37 @@ jobs:
           echo "❌ Bundle missing header"
           exit 1
         fi
-        
+
         if ! grep -q "EmbeddedModules" test_output/bundle.lua; then
           echo "❌ Bundle missing module structure"
           exit 1
         fi
-        
+
         echo "✅ All integration tests passed!"
+
+    - name: Install Lua 5.1 (Luau-faithful runtime)
+      run: sudo apt-get update && sudo apt-get install -y lua5.1
+
+    - name: Bundle and runtime-verify ez-rbx-ui (real library)
+      run: |
+        BIN="$GITHUB_WORKSPACE/${{ env.BINARY_NAME }}-linux-amd64"
+        cd testdata/ez-rbx-ui
+        mkdir -p output
+
+        # Normal bundle + runtime verification under mocked Roblox
+        "$BIN" -e main.lua -o output/bundle.lua
+        test -s output/bundle.lua
+        grep -q "EmbeddedModules" output/bundle.lua
+        lua5.1 scripts/verify_bundle.lua
+        echo "✅ ez-rbx-ui normal bundle runs under mocked Roblox"
+
+        # Release bundle: must not corrupt string literals, and must still run
+        "$BIN" -e main.lua -o output/bundle.lua --release
+        test -s output/bundle.lua
+        if grep -q '=="function "' output/bundle.lua; then
+          echo "❌ minifier corrupted a string literal (=='function ')"
+          exit 1
+        fi
+        lua5.1 scripts/verify_bundle.lua
+        echo "✅ ez-rbx-ui --release bundle runs under mocked Roblox"
 
