@@ -140,34 +140,53 @@ func removeComments(content string) string {
 	return strings.Join(result, "\n")
 }
 
-// minifyCode converts code to single line by removing unnecessary whitespace
+// minifyCode collapses Lua source to a single line, removing comments and
+// unnecessary whitespace while preserving the byte-for-byte contents of string
+// literals. It is string- and comment-aware via a real Lua lexer (see lex), so
+// keywords and punctuation inside string literals are never altered.
 func minifyCode(content string) string {
-	lines := strings.Split(content, "\n")
-	var result []string
+	tokens := lex(content)
 
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" {
-			result = append(result, trimmed)
+	var b strings.Builder
+	prev := ""
+	for _, t := range tokens {
+		if t.kind == tkComment {
+			continue // drop comments
 		}
+		if prev != "" && needsSpace(prev, t.text) {
+			b.WriteByte(' ')
+		}
+		b.WriteString(t.text)
+		prev = t.text
 	}
+	return b.String()
+}
 
-	// Join with space to maintain separation between statements
-	minified := strings.Join(result, " ")
+// isWordChar reports whether c can be part of a Lua name or number, so that two
+// adjacent word chars would lex as a single token.
+func isWordChar(c byte) bool {
+	return c == '_' || (c >= '0' && c <= '9') ||
+		(c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
 
-	// Clean up excessive spaces
-	minified = regexp.MustCompile(`\s+`).ReplaceAllString(minified, " ")
+// mergePairs are two-character sequences that, written adjacently, would lex as
+// a single longer operator or start a comment — so a space must separate them.
+var mergePairs = map[string]bool{
+	"--": true, "..": true, "[[": true, "[=": true,
+	"==": true, "~=": true, "<=": true, ">=": true,
+	"<<": true, ">>": true, "//": true, "::": true,
+}
 
-	// Remove spaces around operators and punctuation where safe
-	minified = regexp.MustCompile(`\s*([,;=(){}[\]])\s*`).ReplaceAllString(minified, "$1")
-
-	// Add space after keywords that require it
-	keywords := []string{"local", "function", "if", "then", "else", "elseif", "end", "for", "while", "do", "return", "in", "and", "or", "not"}
-	for _, keyword := range keywords {
-		minified = regexp.MustCompile(`\b`+keyword+`\b`).ReplaceAllStringFunc(minified, func(match string) string {
-			return match + " "
-		})
+// needsSpace reports whether a separating space is required between already-
+// emitted token text a and the next token text b so that re-lexing yields the
+// same two tokens.
+func needsSpace(a, b string) bool {
+	if a == "" || b == "" {
+		return false
 	}
-
-	return minified
+	la, fb := a[len(a)-1], b[0]
+	if isWordChar(la) && isWordChar(fb) {
+		return true
+	}
+	return mergePairs[string([]byte{la, fb})]
 }

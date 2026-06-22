@@ -196,3 +196,29 @@ end
 
 	assert.Equal(t, expected, result, "removeDebugStatements() complex case should match expected output")
 }
+
+func TestMinifyCode(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"keyword in double-quoted string", `local x = "function"`, `local x="function"`},
+		{"keyword in single-quoted string", `local x = 'end'`, `local x='end'`},
+		{"comma in string preserved", `local s = "a, b"`, `local s="a, b"`},
+		{"equality with keyword string", `print(type(x) == "function")`, `print(type(x)=="function")`},
+		{"long string preserved", `local s = [[a, b end function]]`, `local s=[[a, b end function]]`},
+		{"keyword spacing kept", `local   x   =   1`, `local x=1`},
+		{"if then end spacing", `if a then b end`, `if a then b end`},
+		{"concat operator", `local s = a .. b`, `local s=a..b`},
+		{"not-equal operator", `if a ~= b then end`, `if a~=b then end`},
+		{"line comment dropped", "local x = 1 -- comment\nprint(x)", `local x=1 print(x)`},
+		{"block comment dropped", `local x = 1 --[[c]] print(x)`, `local x=1 print(x)`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, minifyCode(tt.input))
+		})
+	}
+}
