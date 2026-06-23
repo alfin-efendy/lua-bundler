@@ -91,3 +91,28 @@ func TestBundle_EzRbxUI_Obfuscated(t *testing.T) {
 		t.Log("no luac on PATH; CI Layer B / make verify-ezui covers runtime")
 	}
 }
+
+// TestBundle_EzRbxUI_Obfuscated3 bundles ez-rbx-ui with level-3 (rename +
+// string encryption) and checks the result parses and contains a decoder.
+func TestBundle_EzRbxUI_Obfuscated3(t *testing.T) {
+	if _, err := os.Stat(ezRbxUIEntry); err != nil {
+		t.Skip("ez-rbx-ui submodule not checked out")
+	}
+	b, err := NewBundler(ezRbxUIEntry, false, false)
+	require.NoError(t, err)
+	b.SetObfuscationLevel(3)
+	out, err := b.Bundle(true)
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "local _d=", "expected the injected string decoder")
+	assert.Contains(t, out, "_d(", "expected encrypted string decoder calls")
+
+	if luac := findLuac(); luac != "" {
+		tmp := filepath.Join(t.TempDir(), "obf3.lua")
+		require.NoError(t, os.WriteFile(tmp, []byte(out), 0o644))
+		cmdOut, cerr := exec.Command(luac, "-p", tmp).CombinedOutput()
+		assert.NoErrorf(t, cerr, "level-3 bundle failed to parse: %s", cmdOut)
+	} else {
+		t.Log("no luac on PATH; make verify-ezui covers runtime")
+	}
+}

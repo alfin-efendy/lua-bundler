@@ -184,13 +184,16 @@ verify-ezui: build
 	@mkdir -p testdata/ez-rbx-ui/output
 	@BIN="$(CURDIR)/$(BUILD_DIR)/$(BINARY_NAME)"; \
 	cd testdata/ez-rbx-ui && \
-	echo "$(GREEN)[1/2] Verifying plain --release bundle...$(NC)" && \
+	echo "$(GREEN)[1/3] Verifying plain --release bundle...$(NC)" && \
 	"$$BIN" -e main.lua -o output/bundle.lua --release && \
 	lua5.1 scripts/verify_bundle.lua && \
-	echo "$(GREEN)[2/2] Verifying obfuscated --release -O 2 bundle...$(NC)" && \
+	echo "$(GREEN)[2/3] Verifying obfuscated --release -O 2 bundle...$(NC)" && \
 	"$$BIN" -e main.lua -o output/bundle.lua --release -O 2 && \
+	lua5.1 scripts/verify_bundle.lua && \
+	echo "$(GREEN)[3/3] Verifying obfuscated --release -O 3 (string encryption) bundle...$(NC)" && \
+	"$$BIN" -e main.lua -o output/bundle.lua --release -O 3 && \
 	lua5.1 scripts/verify_bundle.lua
-	@echo "$(GREEN)ez-rbx-ui plain and obfuscated bundles both verified!$(NC)"
+	@echo "$(GREEN)ez-rbx-ui plain, obfuscated (-O 2), and string-encrypted (-O 3) bundles all verified!$(NC)"
 
 # Create release build (optimized)
 release: check
