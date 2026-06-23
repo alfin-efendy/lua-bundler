@@ -10,8 +10,20 @@ import (
 	"strings"
 )
 
-// downloadHTTP downloads content from HTTP URL
+// downloadHTTP downloads content from an HTTP URL, or reads a local file for file:// URLs.
 func (b *Bundler) downloadHTTP(url string) (string, error) {
+	// Local file source (file://...): read directly — no HTTP fetch, no cache. Lets local
+	// dev builds embed a freshly-built local bundle (e.g. EZUI_URL=file://../ez-rbx-ui/output/bundle.lua),
+	// bypassing the per-URL HTTP cache that can otherwise serve a stale "latest".
+	if strings.HasPrefix(url, "file://") {
+		path := strings.TrimPrefix(url, "file://")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("failed to read local file %s: %w", path, err)
+		}
+		return string(data), nil
+	}
+
 	// Check cache first
 	if b.cache.IsEnabled() {
 		if content, found, err := b.cache.Get(url); err == nil && found {
