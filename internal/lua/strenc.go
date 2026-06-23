@@ -230,8 +230,8 @@ func (e *encryptor) expr(x Expr) Expr {
 		protected := isProtectedCall(v)
 		for i, a := range v.Args {
 			if protected {
-				if _, isStr := a.(*StringExpr); isStr {
-					continue // never encrypt require/HttpGet string args
+				if _, isStr := unwrapParen(a).(*StringExpr); isStr {
+					continue // never encrypt require/HttpGet string args (even parenthesized)
 				}
 			}
 			v.Args[i] = e.expr(a)
@@ -281,13 +281,25 @@ func (e *encryptor) encode(s *StringExpr) (Expr, bool) {
 // isProtectedCall reports whether v is a require(...) or X:HttpGet(...) call
 // whose string argument must not be encrypted.
 func isProtectedCall(v *CallExpr) bool {
-	switch fn := v.Fn.(type) {
+	fn := unwrapParen(v.Fn)
+	switch f := fn.(type) {
 	case *NameExpr:
-		return fn.Name == "require"
+		return f.Name == "require"
 	case *IndexExpr:
-		return fn.IsMethod && fn.Field == "HttpGet"
+		return f.IsMethod && f.Field == "HttpGet"
 	}
 	return false
+}
+
+// unwrapParen strips any ParenExpr layers and returns the inner expression.
+func unwrapParen(x Expr) Expr {
+	for {
+		p, ok := x.(*ParenExpr)
+		if !ok {
+			return x
+		}
+		x = p.E
+	}
 }
 
 // DecoderPrelude returns the `local _d=...` definition that decodes strings

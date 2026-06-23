@@ -60,11 +60,15 @@ func (o *Obfuscator) DecoderPrelude() string {
 	return lua.DecoderPrelude(o.key)
 }
 
+// fallbackKey is used only if crypto/rand fails (never on Linux). Must be
+// non-zero: a zero XOR key would make the decoder an identity and leak plaintext.
+const fallbackKey byte = 0x5a
+
 // randomKey returns a non-zero byte for XOR string encryption.
 func randomKey() byte {
 	n, err := rand.Int(rand.Reader, big.NewInt(255))
 	if err != nil {
-		return 0x5a // deterministic fallback; crypto/rand does not fail on Linux
+		return fallbackKey
 	}
 	return byte(n.Int64()) + 1 // 1..255
 }

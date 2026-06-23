@@ -107,6 +107,10 @@ func TestBundle_EzRbxUI_Obfuscated3(t *testing.T) {
 	assert.Contains(t, out, "local _d=", "expected the injected string decoder")
 	assert.Contains(t, out, "_d(", "expected encrypted string decoder calls")
 
+	assert.NotContains(t, out, "require(_d(", "require paths must never be encrypted")
+	assert.NotContains(t, out, "loadModule(_d(", "loadModule keys must never be encrypted")
+	assert.NotContains(t, out, "HttpGet(_d(", "HttpGet URLs must never be encrypted")
+
 	if luac := findLuac(); luac != "" {
 		tmp := filepath.Join(t.TempDir(), "obf3.lua")
 		require.NoError(t, os.WriteFile(tmp, []byte(out), 0o644))

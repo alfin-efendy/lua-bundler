@@ -127,3 +127,17 @@ func TestEncryptStrings_BacktickLeftAlone(t *testing.T) {
 		t.Fatalf("interp string must be left as-is: %q", out)
 	}
 }
+
+func TestEncryptStrings_ParenthesizedRequireExcluded(t *testing.T) {
+	out := encStr(t, `local M = require(("core/theme"))`, 0x33)
+	if !contains(out, `"core/theme"`) {
+		t.Fatalf("parenthesized require path must NOT be encrypted: %q", out)
+	}
+}
+
+func TestEncryptStrings_ParenthesizedHttpGetExcluded(t *testing.T) {
+	out := encStr(t, `loadstring(game:HttpGet(("https://x.test/a.lua")))()`, 0x33)
+	if !contains(out, `"https://x.test/a.lua"`) {
+		t.Fatalf("parenthesized HttpGet URL must NOT be encrypted: %q", out)
+	}
+}
