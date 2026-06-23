@@ -170,6 +170,33 @@ func TestGenerateBundle_EmptyModules(t *testing.T) {
 	assert.Contains(t, result, `print("Hello World")`, "generateBundle() should contain original main content")
 }
 
+func TestGenerateBundle_InjectsDecoderAtLevel3(t *testing.T) {
+	b, err := NewBundler("test.lua", false, false)
+	require.NoError(t, err)
+	b.SetObfuscationLevel(3)
+	out := b.generateBundle(`return 1`)
+
+	// Decoder defined exactly once, before EmbeddedModules.
+	if strings.Count(out, "local _d=") != 1 {
+		t.Fatalf("expected exactly one _d decoder, got %d:\n%s", strings.Count(out, "local _d="), out)
+	}
+	di := strings.Index(out, "local _d=")
+	ei := strings.Index(out, "local EmbeddedModules")
+	if di < 0 || ei < 0 || di > ei {
+		t.Fatalf("decoder must precede EmbeddedModules (d=%d, e=%d)", di, ei)
+	}
+}
+
+func TestGenerateBundle_NoDecoderBelowLevel3(t *testing.T) {
+	b, err := NewBundler("test.lua", false, false)
+	require.NoError(t, err)
+	b.SetObfuscationLevel(2)
+	out := b.generateBundle(`return 1`)
+	if strings.Contains(out, "local _d=") {
+		t.Fatalf("level 2 bundle must not contain a decoder:\n%s", out)
+	}
+}
+
 func TestGenerateBundle_ModuleIndentation(t *testing.T) {
 	b, err := NewBundler("test.lua", false, false)
 	require.NoError(t, err, "NewBundler should not fail")
