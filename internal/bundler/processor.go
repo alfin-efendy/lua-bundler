@@ -111,6 +111,20 @@ func (b *Bundler) resolveModulePath(currentFile, modulePath string) string {
 	return resolvedPath
 }
 
+// canonicalKey is the EmbeddedModules key for a local module required as
+// modulePath from currentFile: the resolved file path made relative to baseDir,
+// cleaned, forward-slashed, with any trailing ".lua" removed. The same file
+// required from different callers/spellings collapses to one key.
+func (b *Bundler) canonicalKey(currentFile, modulePath string) string {
+	resolved := b.resolveModulePath(currentFile, modulePath)
+	rel, err := filepath.Rel(b.baseDir, resolved)
+	if err != nil {
+		rel = resolved
+	}
+	rel = filepath.ToSlash(filepath.Clean(rel))
+	return strings.TrimSuffix(rel, ".lua")
+}
+
 // processFile recursively processes a file and its dependencies
 func (b *Bundler) processFile(filePath string, content string) error {
 	// Regex patterns
