@@ -19,7 +19,7 @@ jobs:
     name: Update Winget Manifest
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - name: Get release info
       id: release_info
