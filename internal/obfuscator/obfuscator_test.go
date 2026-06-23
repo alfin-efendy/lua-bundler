@@ -55,3 +55,30 @@ func TestObfuscate_DoesNotCorruptLongStrings(t *testing.T) {
 	out := o.Obfuscate("local s = [[ it's a test ]]\nreturn s")
 	assert.Contains(t, out, "[[ it's a test ]]")
 }
+
+func TestObfuscate_Level3_EncryptsStrings(t *testing.T) {
+	o := NewObfuscator(3)
+	out := o.Obfuscate(`local s = "secret"` + "\nreturn s")
+	assert.NotContains(t, out, `"secret"`, "string literal must be encrypted")
+	assert.Contains(t, out, "_d(", "expected decoder call")
+}
+
+func TestObfuscate_Level3_PreservesRequire(t *testing.T) {
+	o := NewObfuscator(3)
+	out := o.Obfuscate(`local M = require("core/x")` + "\nreturn M")
+	assert.Contains(t, out, `require("core/x")`, "require path must stay literal")
+}
+
+func TestObfuscate_Level3_DecoderPreludeNonEmpty(t *testing.T) {
+	o := NewObfuscator(3)
+	p := o.DecoderPrelude()
+	assert.NotEmpty(t, p)
+	assert.Contains(t, p, "_d")
+	assert.NotContains(t, p, "bit32")
+}
+
+func TestObfuscate_Level2_NoDecoderPrelude(t *testing.T) {
+	assert.Empty(t, NewObfuscator(2).DecoderPrelude())
+	out := NewObfuscator(2).Obfuscate(`local s = "x"` + "\nreturn s")
+	assert.NotContains(t, out, "_d(", "level 2 must not encrypt strings")
+}
