@@ -34,6 +34,19 @@ func (b *Bundler) generateBundle(mainContent string) string {
 	// Generate EmbeddedModules table
 	output.WriteString("local EmbeddedModules = {}\n\n")
 
+	// Add loadModule function (memoized, like require)
+	output.WriteString("-- Load module helper (memoized, like require)\n")
+	output.WriteString("local _cache, _cached = {}, {}\n")
+	output.WriteString("local function loadModule(url)\n")
+	output.WriteString("    if _cached[url] then return _cache[url] end\n")
+	output.WriteString("    if EmbeddedModules[url] then\n")
+	output.WriteString("        _cache[url] = EmbeddedModules[url]()\n")
+	output.WriteString("        _cached[url] = true\n")
+	output.WriteString("        return _cache[url]\n")
+	output.WriteString("    end\n")
+	output.WriteString("    return require(url)\n")
+	output.WriteString("end\n\n")
+
 	// Add all modules
 	for path, content := range b.modules {
 		output.WriteString(fmt.Sprintf("-- Module: %s\n", path))
@@ -51,19 +64,6 @@ func (b *Bundler) generateBundle(mainContent string) string {
 
 		output.WriteString("end\n\n")
 	}
-
-	// Add loadModule function (memoized, like require)
-	output.WriteString("-- Load module helper (memoized, like require)\n")
-	output.WriteString("local _cache, _cached = {}, {}\n")
-	output.WriteString("local function loadModule(url)\n")
-	output.WriteString("    if _cached[url] then return _cache[url] end\n")
-	output.WriteString("    if EmbeddedModules[url] then\n")
-	output.WriteString("        _cache[url] = EmbeddedModules[url]()\n")
-	output.WriteString("        _cached[url] = true\n")
-	output.WriteString("        return _cache[url]\n")
-	output.WriteString("    end\n")
-	output.WriteString("    return require(url)\n")
-	output.WriteString("end\n\n")
 
 	output.WriteString("-- Main Script\n")
 	output.WriteString(mainContent)

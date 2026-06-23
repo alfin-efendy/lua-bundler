@@ -291,6 +291,23 @@ func TestRewriteModuleCalls_DirectHttpGet(t *testing.T) {
 	}
 }
 
+func TestGenerateBundle_LoadModuleDeclaredBeforeClosures(t *testing.T) {
+	b, err := NewBundler("test.lua", false, false)
+	require.NoError(t, err)
+	b.modules["a"] = `local B = loadModule("b") return B`
+	b.modules["b"] = `return 1`
+	out := b.generateBundle("return loadModule(\"a\")")
+
+	di := strings.Index(out, "local function loadModule")
+	ci := strings.Index(out, "EmbeddedModules[\"")
+	if di < 0 || ci < 0 {
+		t.Fatalf("missing loadModule decl or EmbeddedModules assignment:\n%s", out)
+	}
+	if di > ci {
+		t.Fatalf("loadModule must be declared BEFORE EmbeddedModules closures (d=%d c=%d) so closures capture it as an upvalue", di, ci)
+	}
+}
+
 func TestGenerateBundle_LoadModuleMemoizes(t *testing.T) {
 	b, err := NewBundler("test.lua", false, false)
 	require.NoError(t, err)
