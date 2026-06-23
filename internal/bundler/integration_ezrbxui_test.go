@@ -65,3 +65,29 @@ func TestBundle_EzRbxUI_Integration(t *testing.T) {
 		t.Log("no Lua compiler (luac5.1/luac) on PATH; skipping syntax check (CI Layer B covers it)")
 	}
 }
+
+// TestBundle_EzRbxUI_Obfuscated bundles the real library with rename obfuscation
+// and verifies the result still parses (and runs, if the mocked-Roblox harness
+// is wired). This is the regression guard for "obfuscated bundles don't run".
+func TestBundle_EzRbxUI_Obfuscated(t *testing.T) {
+	if _, err := os.Stat(ezRbxUIEntry); err != nil {
+		t.Skip("ez-rbx-ui submodule not checked out")
+	}
+	b, err := NewBundler(ezRbxUIEntry, false, false)
+	require.NoError(t, err)
+	b.SetObfuscationLevel(2)
+	out, err := b.Bundle(true)
+	require.NoError(t, err)
+
+	// Renaming must have happened somewhere.
+	assert.Contains(t, out, "_0x", "expected obfuscated identifiers")
+
+	if luac := findLuac(); luac != "" {
+		tmp := filepath.Join(t.TempDir(), "obf.lua")
+		require.NoError(t, os.WriteFile(tmp, []byte(out), 0o644))
+		cmdOut, cerr := exec.Command(luac, "-p", tmp).CombinedOutput()
+		assert.NoErrorf(t, cerr, "obfuscated bundle failed to parse: %s", cmdOut)
+	} else {
+		t.Log("no luac on PATH; CI Layer B / make verify-ezui covers runtime")
+	}
+}
