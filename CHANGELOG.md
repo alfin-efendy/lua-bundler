@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.12.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.11.0...v1.12.0) (2026-06-23)
+
+### 🚀 Features
+
+* add smoke-test target for building and serving ez-rbx-ui example in all modes ([de30016](https://github.com/alfin-efendy/lua-bundler/commit/de300164867efddaa12c4f2606eb993d84f93f5c))
+* AST string-encryption transform with require/HttpGet exclusions ([a1bf8b3](https://github.com/alfin-efendy/lua-bundler/commit/a1bf8b3cb797b6636e8e14a7ac871e3d828ce265))
+* canonical module-key helper for cross-module resolution ([7572efd](https://github.com/alfin-efendy/lua-bundler/commit/7572efdddcaad87b2cbc04137dd0b7fb6a5c3adb))
+* inject level-3 string decoder once at bundle top ([ed3189d](https://github.com/alfin-efendy/lua-bundler/commit/ed3189d288f6546409117d6909fec423f68a5a53))
+* key embedded modules by canonical path ([5b1a6fa](https://github.com/alfin-efendy/lua-bundler/commit/5b1a6fa9d389b59b3a51aed4f4fc7b92f21fb387))
+* level-3 string encryption in obfuscator + DecoderPrelude ([efe2b58](https://github.com/alfin-efendy/lua-bundler/commit/efe2b587f9b8fe205fcd455b423e39e9d5aba2b4))
+* memoize loadModule so shared modules run once ([b94e270](https://github.com/alfin-efendy/lua-bundler/commit/b94e27055e345f80ba2a27291ff0ed1fac855a7c))
+* rewrite module calls per-unit before obfuscation, with canonical keys ([16b8aaa](https://github.com/alfin-efendy/lua-bundler/commit/16b8aaa8eefd93d3ae9ff72987511b9b121c8e32))
+* string-encryption encode/decode helpers + Lua5.1-safe decoder ([7fe15df](https://github.com/alfin-efendy/lua-bundler/commit/7fe15df4c12c97a9b6431dad88b6bfcb5880a63a))
+
+### 🐛 Bug Fixes
+
+* declare loadModule before module closures so they capture it ([b7a46af](https://github.com/alfin-efendy/lua-bundler/commit/b7a46af5a5964651a97925119bca0b4c7a44aeba))
+* exclude parenthesized require/HttpGet strings from encryption ([ec38df5](https://github.com/alfin-efendy/lua-bundler/commit/ec38df5b77050b0a490257c6a90c0b9f72089b3e))
+* rewrite HTTP module bodies so nested remote requires resolve ([2713490](https://github.com/alfin-efendy/lua-bundler/commit/2713490cbe68231c3edcfa377f1c2757aff9690c))
+
+### ♻️ Code Refactoring
+
+* hoist module-call regexes to package level; add bare-wrap test ([c5a6458](https://github.com/alfin-efendy/lua-bundler/commit/c5a64582333245f7cfcf44062e6c26a557a45811))
+
 ## [1.11.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.10.1...v1.11.0) (2026-06-23)
 
 ### 🚀 Features
