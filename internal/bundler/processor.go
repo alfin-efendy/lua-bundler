@@ -28,14 +28,14 @@ func (b *Bundler) downloadHTTP(url string) (string, error) {
 	if b.cache.IsEnabled() {
 		if content, found, err := b.cache.Get(url); err == nil && found {
 			if b.verbose {
-				fmt.Printf("� Using cached: %s\n", url)
+				fmt.Printf("📦 Using cached: %s\n", url)
 			}
 			return content, nil
 		}
 	}
 
 	if b.verbose {
-		fmt.Printf("�📥 Downloading: %s\n", url)
+		fmt.Printf("📥 Downloading: %s\n", url)
 	}
 
 	resp, err := b.httpClient.Get(url)

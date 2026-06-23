@@ -23,9 +23,8 @@ func (*Chunk) node() {}
 // ---- Statements ----
 
 type LocalStat struct {
-	Names   []*NameExpr // declared local names (renameable)
-	Attribs []string    // Luau attributes per name ("" if none), e.g. "const"; len == len(Names) or 0
-	Values  []Expr      // RHS expressions (may be empty)
+	Names  []*NameExpr
+	Values []Expr
 }
 
 type AssignStat struct {

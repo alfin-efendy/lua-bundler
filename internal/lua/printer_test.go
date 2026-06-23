@@ -11,21 +11,6 @@ func roundTrip(t *testing.T, src string) string {
 	return c.Print()
 }
 
-func TestPrint_LocalAttribs(t *testing.T) {
-	c := &Chunk{Body: []Stat{
-		&LocalStat{
-			Names:   []*NameExpr{{Name: "x"}},
-			Attribs: []string{"const"},
-			Values:  []Expr{&NumberExpr{Text: "1"}},
-		},
-	}}
-	got := c.Print()
-	want := "local x<const> =1"
-	if got != want {
-		t.Fatalf("Print() = %q, want %q", got, want)
-	}
-}
-
 func TestPrint_ExprRoundTrip(t *testing.T) {
 	cases := map[string]string{
 		"return 1 + 2 * 3":       "return 1+2*3",
