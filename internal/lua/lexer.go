@@ -1,4 +1,4 @@
-package bundler
+package lua
 
 import "strings"
 
@@ -50,6 +50,10 @@ func lex(src string) []token {
 		case c == '[' && isLongBracketOpen(src, i):
 			level, _ := longBracketLevel(src, i)
 			i = scanLongBracket(src, i, level)
+			tokens = append(tokens, token{tkString, src[start:i]})
+
+		case c == '`':
+			i = scanBacktick(src, i)
 			tokens = append(tokens, token{tkString, src[start:i]})
 
 		case c == '"' || c == '\'':
@@ -121,6 +125,32 @@ func scanLongBracket(src string, i, level int) int {
 	return len(src)
 }
 
+// scanBacktick consumes a Luau interpolated string `...` including nested {expr}
+// braces. Backslash escapes are skipped; the whole literal becomes one tkString token.
+func scanBacktick(src string, i int) int {
+	i++ // opening backtick
+	depth := 0
+	for i < len(src) {
+		switch src[i] {
+		case '\\':
+			i += 2
+			continue
+		case '{':
+			depth++
+		case '}':
+			if depth > 0 {
+				depth--
+			}
+		case '`':
+			if depth == 0 {
+				return i + 1
+			}
+		}
+		i++
+	}
+	return len(src)
+}
+
 // scanShortString consumes a "..." or '...' literal starting at the quote and
 // returns the index just past the closing quote. Backslash escapes are skipped.
 // An unterminated literal stops at the newline or end of input.
@@ -178,8 +208,12 @@ func scanNumber(src string, i int) int {
 }
 
 // multiCharOps are Lua operators of length >= 2, longest first so greedy
-// matching prefers "..." over ".." over ".".
-var multiCharOps = []string{"...", "..", "==", "~=", "<=", ">=", "::", "//", "<<", ">>"}
+// matching prefers "..." over "..=" over ".." over ".".
+var multiCharOps = []string{
+	"...", "..=", "//=", "<<", ">>",
+	"..", "==", "~=", "<=", ">=", "::", "//",
+	"+=", "-=", "*=", "/=", "%=", "^=",
+}
 
 // scanOp consumes one operator/punctuation token starting at i.
 func scanOp(src string, i int) int {
