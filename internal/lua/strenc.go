@@ -133,6 +133,163 @@ func encodeString(value string, key byte) string {
 	return b.String()
 }
 
+// EncryptStrings replaces eligible string literals in the chunk with _d("...")
+// decoder calls (bytes XOR-ed with key). It never encrypts: backtick
+// interpolation strings, the string argument of require(...), or the string
+// argument of game:HttpGet(...) — those must survive as literals for module
+// resolution. Literals it cannot safely decode are left unchanged.
+func EncryptStrings(c *Chunk, key byte) {
+	e := &encryptor{key: key}
+	e.block(c.Body)
+}
+
+type encryptor struct{ key byte }
+
+func (e *encryptor) block(stats []Stat) {
+	for _, s := range stats {
+		e.stat(s)
+	}
+}
+
+func (e *encryptor) stat(s Stat) {
+	switch v := s.(type) {
+	case *LocalStat:
+		e.exprs(v.Values)
+	case *AssignStat:
+		e.exprs(v.Targets)
+		e.exprs(v.Values)
+	case *CallStat:
+		v.Call = e.expr(v.Call)
+	case *DoStat:
+		e.block(v.Body)
+	case *WhileStat:
+		v.Cond = e.expr(v.Cond)
+		e.block(v.Body)
+	case *RepeatStat:
+		e.block(v.Body)
+		v.Cond = e.expr(v.Cond)
+	case *IfStat:
+		for i := range v.Conds {
+			v.Conds[i] = e.expr(v.Conds[i])
+			e.block(v.Blocks[i])
+		}
+		if v.HasElse {
+			e.block(v.Else)
+		}
+	case *NumericForStat:
+		v.Start = e.expr(v.Start)
+		v.Stop = e.expr(v.Stop)
+		if v.Step != nil {
+			v.Step = e.expr(v.Step)
+		}
+		e.block(v.Body)
+	case *GenericForStat:
+		e.exprs(v.Exprs)
+		e.block(v.Body)
+	case *FuncStat:
+		e.block(v.Func.Body)
+	case *LocalFuncStat:
+		e.block(v.Func.Body)
+	case *ReturnStat:
+		e.exprs(v.Values)
+	}
+}
+
+func (e *encryptor) exprs(xs []Expr) {
+	for i := range xs {
+		xs[i] = e.expr(xs[i])
+	}
+}
+
+// expr returns x or its encrypted replacement, recursing into children.
+func (e *encryptor) expr(x Expr) Expr {
+	switch v := x.(type) {
+	case *StringExpr:
+		if repl, ok := e.encode(v); ok {
+			return repl
+		}
+		return v
+	case *ParenExpr:
+		v.E = e.expr(v.E)
+		return v
+	case *BinExpr:
+		v.L = e.expr(v.L)
+		v.R = e.expr(v.R)
+		return v
+	case *UnExpr:
+		v.E = e.expr(v.E)
+		return v
+	case *IndexExpr:
+		v.Obj = e.expr(v.Obj)
+		if v.Key != nil {
+			v.Key = e.expr(v.Key)
+		}
+		return v
+	case *CallExpr:
+		v.Fn = e.expr(v.Fn)
+		protected := isProtectedCall(v)
+		for i, a := range v.Args {
+			if protected {
+				if _, isStr := a.(*StringExpr); isStr {
+					continue // never encrypt require/HttpGet string args
+				}
+			}
+			v.Args[i] = e.expr(a)
+		}
+		return v
+	case *TableExpr:
+		for i := range v.Fields {
+			if v.Fields[i].Key != nil {
+				v.Fields[i].Key = e.expr(v.Fields[i].Key)
+			}
+			v.Fields[i].Value = e.expr(v.Fields[i].Value)
+		}
+		return v
+	case *FuncExpr:
+		e.block(v.Body)
+		return v
+	case *IfExpr:
+		v.Cond = e.expr(v.Cond)
+		v.Then = e.expr(v.Then)
+		for i := range v.ElifConds {
+			v.ElifConds[i] = e.expr(v.ElifConds[i])
+			v.ElifThen[i] = e.expr(v.ElifThen[i])
+		}
+		v.Else = e.expr(v.Else)
+		return v
+	default:
+		return x // NameExpr, NumberExpr, BoolExpr, NilExpr, VarargExpr
+	}
+}
+
+// encode turns a string literal into a _d("...") call, or reports ok=false to
+// leave it unchanged (backtick interpolation or undecodable literal).
+func (e *encryptor) encode(s *StringExpr) (Expr, bool) {
+	if len(s.Text) > 0 && s.Text[0] == '`' {
+		return nil, false
+	}
+	val, ok := unquoteLuaString(s.Text)
+	if !ok {
+		return nil, false
+	}
+	return &CallExpr{
+		Fn:   &NameExpr{Name: "_d"},
+		Args: []Expr{&StringExpr{Text: encodeString(val, e.key)}},
+	}, true
+}
+
+// isProtectedCall reports whether v is a require(...) or X:HttpGet(...) call
+// whose string argument must not be encrypted.
+func isProtectedCall(v *CallExpr) bool {
+	switch fn := v.Fn.(type) {
+	case *NameExpr:
+		return fn.Name == "require"
+	case *IndexExpr:
+		return fn.IsMethod && fn.Field == "HttpGet"
+	}
+	return false
+}
+
 // DecoderPrelude returns the `local _d=...` definition that decodes strings
 // produced by encodeString with the same key. It uses arithmetic XOR (no
 // bit32) so it runs under Lua 5.1 as well as Roblox Luau.

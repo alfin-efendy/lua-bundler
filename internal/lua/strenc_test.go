@@ -75,3 +75,55 @@ func contains(s, sub string) bool {
 	}
 	return false
 }
+
+func encStr(t *testing.T, src string, key byte) string {
+	t.Helper()
+	c, err := Parse(src)
+	if err != nil {
+		t.Fatalf("parse %q: %v", src, err)
+	}
+	EncryptStrings(c, key)
+	return c.Print()
+}
+
+func TestEncryptStrings_PlainEncrypted(t *testing.T) {
+	out := encStr(t, `local s = "hello"`, 0x33)
+	if contains(out, `"hello"`) {
+		t.Fatalf("plaintext leaked: %q", out)
+	}
+	if !contains(out, "_d(") {
+		t.Fatalf("expected _d() decoder call: %q", out)
+	}
+}
+
+func TestEncryptStrings_RequireExcluded(t *testing.T) {
+	out := encStr(t, `local M = require("core/theme")`, 0x33)
+	if !contains(out, `require("core/theme")`) {
+		t.Fatalf("require path must NOT be encrypted: %q", out)
+	}
+}
+
+func TestEncryptStrings_HttpGetExcluded(t *testing.T) {
+	out := encStr(t, `loadstring(game:HttpGet("https://x.test/a.lua"))()`, 0x33)
+	if !contains(out, `"https://x.test/a.lua"`) {
+		t.Fatalf("HttpGet URL must NOT be encrypted: %q", out)
+	}
+}
+
+func TestEncryptStrings_GetServiceEncrypted(t *testing.T) {
+	// Non-protected calls: string args ARE encrypted (runtime decodes them).
+	out := encStr(t, `local p = game:GetService("Players")`, 0x33)
+	if contains(out, `"Players"`) {
+		t.Fatalf("GetService arg should be encrypted: %q", out)
+	}
+	if !contains(out, "_d(") {
+		t.Fatalf("expected _d() call: %q", out)
+	}
+}
+
+func TestEncryptStrings_BacktickLeftAlone(t *testing.T) {
+	out := encStr(t, "local s = `hi {x}`", 0x33)
+	if !contains(out, "`hi {x}`") {
+		t.Fatalf("interp string must be left as-is: %q", out)
+	}
+}
