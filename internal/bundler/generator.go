@@ -52,15 +52,16 @@ func (b *Bundler) generateBundle(mainContent string) string {
 		output.WriteString("end\n\n")
 	}
 
-	// Add loadModule function
-	output.WriteString("-- Load module helper function\n")
+	// Add loadModule function (memoized, like require)
+	output.WriteString("-- Load module helper (memoized, like require)\n")
+	output.WriteString("local _cache, _cached = {}, {}\n")
 	output.WriteString("local function loadModule(url)\n")
-	output.WriteString("    -- Try embedded module first\n")
+	output.WriteString("    if _cached[url] then return _cache[url] end\n")
 	output.WriteString("    if EmbeddedModules[url] then\n")
-	output.WriteString("        return EmbeddedModules[url]()\n")
+	output.WriteString("        _cache[url] = EmbeddedModules[url]()\n")
+	output.WriteString("        _cached[url] = true\n")
+	output.WriteString("        return _cache[url]\n")
 	output.WriteString("    end\n")
-	output.WriteString("    \n")
-	output.WriteString("    -- Fallback to original require\n")
 	output.WriteString("    return require(url)\n")
 	output.WriteString("end\n\n")
 

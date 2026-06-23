@@ -290,3 +290,18 @@ func TestRewriteModuleCalls_DirectHttpGet(t *testing.T) {
 		t.Fatalf("direct HttpGet must be rewritten: %q", got)
 	}
 }
+
+func TestGenerateBundle_LoadModuleMemoizes(t *testing.T) {
+	b, err := NewBundler("test.lua", false, false)
+	require.NoError(t, err)
+	out := b.generateBundle("return 1")
+	// The helper must cache: a second loadModule(url) returns the cached value
+	// rather than re-invoking EmbeddedModules[url].
+	if !strings.Contains(out, "EmbeddedModules[url]()") {
+		t.Fatalf("loadModule should still invoke embedded modules: %s", out)
+	}
+	// A cache table + a cached-flag table must be present.
+	if !strings.Contains(out, "_cache") || !strings.Contains(out, "_cached") {
+		t.Fatalf("loadModule must memoize via _cache/_cached: %s", out)
+	}
+}
