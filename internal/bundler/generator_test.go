@@ -272,6 +272,15 @@ func TestRewriteModuleCalls_SkipsFunctionWrappedHttpGet(t *testing.T) {
 	}
 }
 
+func TestRewriteModuleCalls_SkipsBareFunctionWrappedHttpGet(t *testing.T) {
+	b, err := NewBundler("x.lua", false, false)
+	require.NoError(t, err)
+	in := `queue_on_teleport(loadstring(game:HttpGet("https://e/x.lua"))())`
+	if got := b.rewriteModuleCalls(in, "x.lua"); got != in {
+		t.Fatalf("bare function-wrapped HttpGet must NOT be rewritten: %q", got)
+	}
+}
+
 func TestRewriteModuleCalls_DirectHttpGet(t *testing.T) {
 	b, err := NewBundler("x.lua", false, false)
 	require.NoError(t, err)

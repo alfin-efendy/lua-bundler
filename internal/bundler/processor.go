@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
@@ -127,22 +126,16 @@ func (b *Bundler) canonicalKey(currentFile, modulePath string) string {
 
 // processFile recursively processes a file and its dependencies
 func (b *Bundler) processFile(filePath string, content string) error {
-	// Regex patterns
-	requireRegex := regexp.MustCompile(`require\s*\(\s*['"]([^'"]+)['"]\s*\)`)
-	httpGetRegex := regexp.MustCompile(`loadstring\s*\(\s*game:HttpGet\s*\(\s*['"]([^'"]+)['"]\s*\)\s*\)\s*\(\s*\)`)
-	// Pattern to detect HttpGet inside function calls (should NOT be bundled)
-	funcCallHttpGetRegex := regexp.MustCompile(`\w+\s*\([^)]*loadstring\s*\(\s*game:HttpGet`)
-
 	lines := strings.Split(content, "\n")
 
 	for _, line := range lines {
 		// Skip if HttpGet is inside a function call (e.g., queue_on_teleport("loadstring(...)"))
-		if funcCallHttpGetRegex.MatchString(line) {
+		if moduleFuncWrapHTTPGet.MatchString(line) {
 			continue
 		}
 
 		// Check for loadstring(game:HttpGet(...))()
-		if matches := httpGetRegex.FindStringSubmatch(line); len(matches) > 1 {
+		if matches := moduleHTTPGetRegex.FindStringSubmatch(line); len(matches) > 1 {
 			url := matches[1]
 
 			// Skip if already processed
@@ -170,7 +163,7 @@ func (b *Bundler) processFile(filePath string, content string) error {
 		}
 
 		// Check for local require()
-		if matches := requireRegex.FindStringSubmatch(line); len(matches) > 1 {
+		if matches := moduleRequireRegex.FindStringSubmatch(line); len(matches) > 1 {
 			modulePath := matches[1]
 
 			// Process local files (relative, absolute from base, or subdirectory)
