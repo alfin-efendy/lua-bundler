@@ -8,8 +8,8 @@ updates:
       day: "monday"
       time: "06:00"
     commit-message:
-      prefix: "deps"
-      prefix-development: "deps-dev"
+      prefix: "build"
+      prefix-development: "build"
       include: "scope"
     reviewers:
       - "alfin-efendy"
@@ -41,7 +41,7 @@ updates:
       day: "monday"
       time: "06:00"
     commit-message:
-      prefix: "docker"
+      prefix: "build"
       include: "scope"
     reviewers:
       - "alfin-efendy"
