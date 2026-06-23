@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
@@ -111,24 +110,32 @@ func (b *Bundler) resolveModulePath(currentFile, modulePath string) string {
 	return resolvedPath
 }
 
+// canonicalKey is the EmbeddedModules key for a local module required as
+// modulePath from currentFile: the resolved file path made relative to baseDir,
+// cleaned, forward-slashed, with any trailing ".lua" removed. The same file
+// required from different callers/spellings collapses to one key.
+func (b *Bundler) canonicalKey(currentFile, modulePath string) string {
+	resolved := b.resolveModulePath(currentFile, modulePath)
+	rel, err := filepath.Rel(b.baseDir, resolved)
+	if err != nil {
+		rel = resolved
+	}
+	rel = filepath.ToSlash(filepath.Clean(rel))
+	return strings.TrimSuffix(rel, ".lua")
+}
+
 // processFile recursively processes a file and its dependencies
 func (b *Bundler) processFile(filePath string, content string) error {
-	// Regex patterns
-	requireRegex := regexp.MustCompile(`require\s*\(\s*['"]([^'"]+)['"]\s*\)`)
-	httpGetRegex := regexp.MustCompile(`loadstring\s*\(\s*game:HttpGet\s*\(\s*['"]([^'"]+)['"]\s*\)\s*\)\s*\(\s*\)`)
-	// Pattern to detect HttpGet inside function calls (should NOT be bundled)
-	funcCallHttpGetRegex := regexp.MustCompile(`\w+\s*\([^)]*loadstring\s*\(\s*game:HttpGet`)
-
 	lines := strings.Split(content, "\n")
 
 	for _, line := range lines {
 		// Skip if HttpGet is inside a function call (e.g., queue_on_teleport("loadstring(...)"))
-		if funcCallHttpGetRegex.MatchString(line) {
+		if moduleFuncWrapHTTPGet.MatchString(line) {
 			continue
 		}
 
 		// Check for loadstring(game:HttpGet(...))()
-		if matches := httpGetRegex.FindStringSubmatch(line); len(matches) > 1 {
+		if matches := moduleHTTPGetRegex.FindStringSubmatch(line); len(matches) > 1 {
 			url := matches[1]
 
 			// Skip if already processed
@@ -145,26 +152,34 @@ func (b *Bundler) processFile(filePath string, content string) error {
 			// Apply env var substitution to HTTP module content
 			httpContent = substituteEnvVars(httpContent, b.envVars, b.verbose)
 
+			// Rewrite nested HttpGet/require calls before storing, so the embedded
+			// body calls loadModule() instead of live-fetching at runtime.
+			// Pass the raw (pre-rewrite) content to processFile so the HttpGet
+			// patterns are still present for nested dependency discovery.
+			rawHTTPContent := httpContent
+			httpContent = b.rewriteModuleCalls(httpContent, url)
+
 			// Mark as HTTP module (do not obfuscate)
 			b.httpModules[url] = true
 			b.modules[url] = httpContent
 
-			// Process downloaded content (might have requires in it)
-			if err := b.processFile(url, httpContent); err != nil {
+			// Process raw downloaded content (might have nested requires/HttpGets in it)
+			if err := b.processFile(url, rawHTTPContent); err != nil {
 				return err
 			}
 		}
 
 		// Check for local require()
-		if matches := requireRegex.FindStringSubmatch(line); len(matches) > 1 {
+		if matches := moduleRequireRegex.FindStringSubmatch(line); len(matches) > 1 {
 			modulePath := matches[1]
 
 			// Process local files (relative, absolute from base, or subdirectory)
 			if b.isLocalModule(modulePath) {
 				resolvedPath := b.resolveModulePath(filePath, modulePath)
+				key := b.canonicalKey(filePath, modulePath)
 
-				// Skip if already processed
-				if _, exists := b.modules[modulePath]; exists {
+				// Skip if already processed (by canonical key)
+				if _, exists := b.modules[key]; exists {
 					continue
 				}
 
@@ -178,19 +193,20 @@ func (b *Bundler) processFile(filePath string, content string) error {
 
 				// Apply env var substitution before obfuscation
 				moduleContent = substituteEnvVars(moduleContent, b.envVars, b.verbose)
+				moduleContent = b.rewriteModuleCalls(moduleContent, resolvedPath)
 
 				// Obfuscate local module if obfuscation is enabled
 				if b.obfuscateLevel > 0 && b.obfuscator != nil {
 					moduleContent = b.obfuscator.Obfuscate(moduleContent)
 				}
 
-				b.modules[modulePath] = moduleContent
+				b.modules[key] = moduleContent
 
 				if b.verbose {
-					fmt.Printf("📄 Processed: %s\n", modulePath)
+					fmt.Printf("📄 Processed: %s\n", key)
 				}
 
-				// Process file recursively
+				// Process file recursively (pass raw fileContent so nested requires remain intact)
 				if err := b.processFile(resolvedPath, string(fileContent)); err != nil {
 					return err
 				}
