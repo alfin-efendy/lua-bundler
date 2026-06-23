@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.11.0](https://github.com/alfin-efendy/lua-bundler/compare/v1.10.1...v1.11.0) (2026-06-23)
+
+### 🚀 Features
+
+* accept Luau types, type aliases, if-expr, interpolation ([0c75c91](https://github.com/alfin-efendy/lua-bundler/commit/0c75c91d1477a7eac7307e4a0ba4c0688105dab4))
+* add Luau AST node definitions ([3b7e6d1](https://github.com/alfin-efendy/lua-bundler/commit/3b7e6d13d038842e6faff64ba1254123f36338a9))
+* lexical scope resolver attaching bindings to names ([0004ceb](https://github.com/alfin-efendy/lua-bundler/commit/0004cebe0aa11e4c84fc7db6119db88245cdaa7c))
+* minifying AST printer with re-lex-safe spacing ([9b051b8](https://github.com/alfin-efendy/lua-bundler/commit/9b051b854c5d79fc31b1c0b304f3217e2c1da660))
+* parse full Lua statement grammar + compound-assign tokens ([6efb2fc](https://github.com/alfin-efendy/lua-bundler/commit/6efb2fccf8d2017f309e2c00b91ff76007259b69))
+* parse Lua expressions with precedence climbing ([2cfd2e5](https://github.com/alfin-efendy/lua-bundler/commit/2cfd2e53689e043d6ee38a6b8650abfd5ff13be4))
+* scope-aware renamer for local bindings ([8c5e8be](https://github.com/alfin-efendy/lua-bundler/commit/8c5e8be12102fff1e7472ee2acfac78907414834))
+* support file:// sources in downloadHTTP ([ac53074](https://github.com/alfin-efendy/lua-bundler/commit/ac530749c3b0da3a4e4b80de96afa99e6004fabc))
+
+### 🐛 Bug Fixes
+
+* printer emits Luau local attributes ([975fa8c](https://github.com/alfin-efendy/lua-bundler/commit/975fa8cc5af36ad1f16b457437b21e810a41b28a))
+
+### ♻️ Code Refactoring
+
+* drop dead Luau local-attribute code; fix log mojibake ([a9c0ad0](https://github.com/alfin-efendy/lua-bundler/commit/a9c0ad08f15b69ab2df5cd6ac1f20cddff182bb5))
+* extract lexer+minify into internal/lua package ([a061ad7](https://github.com/alfin-efendy/lua-bundler/commit/a061ad79345e0ab06dee47a0df145286e101f840))
+* rewire obfuscator onto internal/lua parser+renamer ([6658b99](https://github.com/alfin-efendy/lua-bundler/commit/6658b99b4759baa1e05b79223b80e26ae9cca24e))
+
 ## [1.10.1](https://github.com/alfin-efendy/lua-bundler/compare/v1.10.0...v1.10.1) (2026-06-22)
 
 ### 🐛 Bug Fixes
