@@ -141,3 +141,10 @@ func TestEncryptStrings_ParenthesizedHttpGetExcluded(t *testing.T) {
 		t.Fatalf("parenthesized HttpGet URL must NOT be encrypted: %q", out)
 	}
 }
+
+func TestEncryptStrings_LoadModuleExcluded(t *testing.T) {
+	out := encStr(t, `local M = loadModule("core/theme")`, 0x33)
+	if !contains(out, `"core/theme"`) {
+		t.Fatalf("loadModule key must NOT be encrypted: %q", out)
+	}
+}
