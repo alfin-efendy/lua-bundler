@@ -17,8 +17,8 @@ func TestUnquoteLuaString(t *testing.T) {
 		{"[[raw]]", "raw", true},
 		{"[==[a]==]", "a", true},
 		{"[[\nleading]]", "leading", true}, // first newline dropped
-		{"`interp{x}`", "", false},          // backtick not handled
-		{`"bad\q"`, "", false},              // unknown escape
+		{"`interp{x}`", "", false},         // backtick not handled
+		{`"bad\q"`, "", false},             // unknown escape
 	}
 	for _, c := range cases {
 		got, ok := unquoteLuaString(c.in)

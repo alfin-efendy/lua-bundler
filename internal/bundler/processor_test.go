@@ -152,7 +152,7 @@ func TestCanonicalKey(t *testing.T) {
 	cases := []struct{ cur, mod, want string }{
 		{entry, "core/theme", "core/theme"},
 		{entry, "core/theme.lua", "core/theme"},
-		{button, "../core/theme", "core/theme"},  // same module, different caller/spelling
+		{button, "../core/theme", "core/theme"}, // same module, different caller/spelling
 		{button, "./sibling", "components/sibling"},
 		{entry, "/core/theme", "core/theme"}, // base-relative spelling
 	}
