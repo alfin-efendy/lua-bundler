@@ -74,7 +74,17 @@ func (e *emitter) stat(s Stat) {
 	switch v := s.(type) {
 	case *LocalStat:
 		e.name("local")
-		e.nameList(v.Names)
+		for i, n := range v.Names {
+			if i > 0 {
+				e.op(",")
+			}
+			e.nameRef(n)
+			if i < len(v.Attribs) && v.Attribs[i] != "" {
+				e.op("<")
+				e.name(v.Attribs[i])
+				e.op(">")
+			}
+		}
 		if len(v.Values) > 0 {
 			e.op("=")
 			e.exprList(v.Values)
