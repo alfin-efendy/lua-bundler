@@ -259,6 +259,8 @@ func (p *parser) parsePrimary() (Expr, error) {
 	case t.text == "...":
 		p.advance()
 		return &VarargExpr{}, nil
+	case t.text == "if":
+		return p.parseIfExpr()
 	case t.text == "function":
 		p.advance()
 		return p.parseFuncBody()
@@ -422,6 +424,12 @@ func (p *parser) parseReturn() (Stat, error) {
 }
 
 func (p *parser) parseStatement() (Stat, error) {
+	// Luau contextual: `type X = ...` and `export type X = ...`
+	// 'type' and 'export' are not Lua keywords; detect them by lookahead.
+	if (p.isText("export") && p.pos+1 < len(p.toks) && p.toks[p.pos+1].text == "type") ||
+		(p.isText("type") && p.isName2(p.pos+1)) {
+		return p.parseTypeAlias()
+	}
 	switch p.peekText() {
 	case "local":
 		return p.parseLocal()
@@ -728,6 +736,153 @@ func isAssignOp(op string) bool {
 	return false
 }
 
-// Type-annotation skippers are implemented fully in Task 6. Temporary no-ops:
-func (p *parser) skipTypeAnnotation()       {}
-func (p *parser) skipReturnTypeAnnotation() {}
+// skipTypeAnnotation consumes an optional ': <type>' after a name/param.
+func (p *parser) skipTypeAnnotation() {
+	if p.isText(":") {
+		p.advance()
+		p.skipType()
+	}
+}
+
+// skipReturnTypeAnnotation consumes an optional ': <type>' after a ')' params list.
+func (p *parser) skipReturnTypeAnnotation() {
+	if p.isText(":") {
+		p.advance()
+		p.skipType()
+	}
+}
+
+// skipType consumes a Luau type expression after ':' or '='. It consumes at
+// least one type atom, then continues across type connectors (| & -> ?) and
+// balanced brackets, stopping at a token that ends the type at depth 0. It is
+// permissive: on an exotic type it may over-consume and cause Parse to error,
+// which is the intended safety net (the obfuscator falls back to minify).
+func (p *parser) skipType() {
+	p.skipTypeAtom()
+	for {
+		switch {
+		case p.isText("?"):
+			p.advance() // postfix optional, no atom follows
+		case p.isText("|") || p.isText("&"):
+			p.advance()
+			p.skipTypeAtom()
+		case p.isText("-") && p.peekAt(1).text == ">":
+			p.advance() // '-'
+			p.advance() // '>'
+			p.skipTypeAtom()
+		default:
+			return
+		}
+	}
+}
+
+// skipTypeAtom consumes one type atom: a balanced (...) or {...} group, or a
+// (possibly dotted, possibly generic) name / literal / typeof(...).
+func (p *parser) skipTypeAtom() {
+	switch {
+	case p.isText("("):
+		p.skipBalanced("(", ")")
+	case p.isText("{"):
+		p.skipBalanced("{", "}")
+	default:
+		if p.atEnd() {
+			return
+		}
+		p.advance() // name / nil / true / false / string / number / typeof / ...
+		for p.isText(".") { // dotted module type a.b.C
+			p.advance()
+			if !p.atEnd() {
+				p.advance()
+			}
+		}
+		if p.isText("(") { // typeof(expr)
+			p.skipBalanced("(", ")")
+		}
+		if p.isText("<") { // generic args <...>
+			p.skipBalanced("<", ">")
+		}
+	}
+}
+
+// skipBalanced consumes a run delimited by open/close, honoring nesting.
+func (p *parser) skipBalanced(open, close string) {
+	if !p.accept(open) {
+		return
+	}
+	depth := 1
+	for !p.atEnd() && depth > 0 {
+		t := p.peekText()
+		if t == open {
+			depth++
+		} else if t == close {
+			depth--
+		}
+		p.advance()
+	}
+}
+
+// isName2 checks whether the token at absolute index i is a non-keyword name.
+func (p *parser) isName2(i int) bool {
+	return i < len(p.toks) && p.toks[i].kind == tkName && !luaKeywords[p.toks[i].text]
+}
+
+// parseTypeAlias consumes a Luau `type X = ...` or `export type X = ...`
+// statement and returns a TypeAliasStat with Raw == nil so the printer emits nothing.
+func (p *parser) parseTypeAlias() (Stat, error) {
+	p.accept("export")  // optional 'export'
+	p.advance()         // 'type'
+	if !p.isName() {
+		return nil, p.errf("expected type name")
+	}
+	p.advance() // type name
+	// optional generics <T, U>
+	if p.isText("<") {
+		p.skipBalanced("<", ">")
+	}
+	if err := p.expect("="); err != nil {
+		return nil, err
+	}
+	p.skipType()
+	return &TypeAliasStat{Raw: nil}, nil
+}
+
+// parseIfExpr parses a Luau if-expression: `if cond then a [elseif c then b]* else z`.
+func (p *parser) parseIfExpr() (Expr, error) {
+	p.advance() // 'if'
+	cond, err := p.parseExpr()
+	if err != nil {
+		return nil, err
+	}
+	if err := p.expect("then"); err != nil {
+		return nil, err
+	}
+	thenE, err := p.parseExpr()
+	if err != nil {
+		return nil, err
+	}
+	ie := &IfExpr{Cond: cond, Then: thenE}
+	for p.accept("elseif") {
+		c, err := p.parseExpr()
+		if err != nil {
+			return nil, err
+		}
+		if err := p.expect("then"); err != nil {
+			return nil, err
+		}
+		v, err := p.parseExpr()
+		if err != nil {
+			return nil, err
+		}
+		ie.ElifConds = append(ie.ElifConds, c)
+		ie.ElifThen = append(ie.ElifThen, v)
+	}
+	if err := p.expect("else"); err != nil {
+		return nil, err
+	}
+	elseE, err := p.parseExpr()
+	if err != nil {
+		return nil, err
+	}
+	ie.Else = elseE
+	return ie, nil
+}

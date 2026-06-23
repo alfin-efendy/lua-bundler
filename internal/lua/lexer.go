@@ -52,6 +52,10 @@ func lex(src string) []token {
 			i = scanLongBracket(src, i, level)
 			tokens = append(tokens, token{tkString, src[start:i]})
 
+		case c == '`':
+			i = scanBacktick(src, i)
+			tokens = append(tokens, token{tkString, src[start:i]})
+
 		case c == '"' || c == '\'':
 			i = scanShortString(src, i)
 			tokens = append(tokens, token{tkString, src[start:i]})
@@ -117,6 +121,32 @@ func scanLongBracket(src string, i, level int) int {
 	closer := "]" + strings.Repeat("=", level) + "]"
 	if idx := strings.Index(src[i:], closer); idx >= 0 {
 		return i + idx + len(closer)
+	}
+	return len(src)
+}
+
+// scanBacktick consumes a Luau interpolated string `...` including nested {expr}
+// braces. Backslash escapes are skipped; the whole literal becomes one tkString token.
+func scanBacktick(src string, i int) int {
+	i++ // opening backtick
+	depth := 0
+	for i < len(src) {
+		switch src[i] {
+		case '\\':
+			i += 2
+			continue
+		case '{':
+			depth++
+		case '}':
+			if depth > 0 {
+				depth--
+			}
+		case '`':
+			if depth == 0 {
+				return i + 1
+			}
+		}
+		i++
 	}
 	return len(src)
 }

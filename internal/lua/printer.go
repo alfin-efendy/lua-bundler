@@ -305,6 +305,19 @@ func (e *emitter) expr(x Expr) {
 			e.op(v.Op)
 		}
 		e.expr(v.E)
+	case *IfExpr:
+		e.name("if")
+		e.expr(v.Cond)
+		e.name("then")
+		e.expr(v.Then)
+		for i := range v.ElifConds {
+			e.name("elseif")
+			e.expr(v.ElifConds[i])
+			e.name("then")
+			e.expr(v.ElifThen[i])
+		}
+		e.name("else")
+		e.expr(v.Else)
 	}
 }
 

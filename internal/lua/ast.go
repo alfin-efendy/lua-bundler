@@ -196,6 +196,15 @@ type UnExpr struct {
 // significant (e.g. truncating a multi-value call to one value).
 type ParenExpr struct{ E Expr }
 
+// IfExpr is a Luau if-expression: `if cond then a elseif c2 then b else d`.
+// It is an expression, not a statement, and produces a value.
+type IfExpr struct {
+	Cond, Then Expr
+	ElifConds  []Expr
+	ElifThen   []Expr
+	Else       Expr
+}
+
 func (*NameExpr) node()   {}
 func (*NameExpr) expr()   {}
 func (*NumberExpr) node() {}
@@ -222,6 +231,8 @@ func (*UnExpr) node()     {}
 func (*UnExpr) expr()     {}
 func (*ParenExpr) node()  {}
 func (*ParenExpr) expr()  {}
+func (*IfExpr) node()     {}
+func (*IfExpr) expr()     {}
 
 // Binding is a resolved local/param/forvar declaration shared by its
 // declaration NameExpr and all referencing NameExprs.
