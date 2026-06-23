@@ -13,6 +13,15 @@ OUTPUT_DIR=output
 ENTRY_FILE ?= example/myscript/main.lua
 OUTPUT_FILE ?= $(OUTPUT_DIR)/example_bundle.lua
 
+# ez-rbx-ui example smoke test (build every mode, serve one)
+SMOKE_ENTRY     ?= testdata/ez-rbx-ui/example/main.lua
+SMOKE_LIB_ENTRY ?= testdata/ez-rbx-ui/main.lua
+SMOKE_LIB_OUT   ?= testdata/ez-rbx-ui/output/bundle.lua
+SMOKE_DIR       ?= $(OUTPUT_DIR)/smoke
+SMOKE_MODE      ?= release-o3
+SMOKE_PORT      ?= 8080
+SMOKE_SERVE     ?= 1
+
 # Build information
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_DATE ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
@@ -28,7 +37,7 @@ YELLOW=\033[1;33m
 RED=\033[0;31m
 NC=\033[0m # No Color
 
-.PHONY: all build clean test run help install deps fmt vet lint check release example verify-ezui
+.PHONY: all build clean test run help install deps fmt vet lint check release example verify-ezui smoke-test
 
 # Show help
 help:
@@ -46,10 +55,15 @@ help:
 	@echo "  $(YELLOW)check$(NC)        - Run fmt, vet, and lint"
 	@echo "  $(YELLOW)example$(NC)      - Build and run example"
 	@echo "  $(YELLOW)release$(NC)      - Create release build"
+	@echo "  $(YELLOW)verify-ezui$(NC)  - Build+run ez-rbx-ui under mocked Roblox (plain/-O2/-O3)"
+	@echo "  $(YELLOW)smoke-test$(NC)   - Build ez-rbx-ui example in all modes, then serve one"
 	@echo ""
 	@echo "$(GREEN)Configuration Variables:$(NC)"
 	@echo "  $(YELLOW)ENTRY_FILE$(NC)   - Entry Lua file (default: $(ENTRY_FILE))"
 	@echo "  $(YELLOW)OUTPUT_FILE$(NC)  - Output bundle file (default: $(OUTPUT_FILE))"
+	@echo "  $(YELLOW)SMOKE_MODE$(NC)   - smoke-test mode to serve (default: $(SMOKE_MODE))"
+	@echo "  $(YELLOW)SMOKE_PORT$(NC)   - smoke-test serve port (default: $(SMOKE_PORT))"
+	@echo "  $(YELLOW)SMOKE_SERVE$(NC)  - set 0 to build all modes without serving (default: $(SMOKE_SERVE))"
 	@echo ""
 	@echo "$(GREEN)Usage Examples:$(NC)"
 	@echo "  make run ENTRY_FILE=my_script.lua OUTPUT_FILE=my_bundle.lua"
@@ -61,8 +75,13 @@ deps:
 	@echo "$(GREEN)Downloading dependencies...$(NC)"
 	go mod download
 	go mod tidy
-	@echo "$(GREEN)Initializing git submodules...$(NC)"
-	git submodule update --init --recursive
+	@if git submodule status testdata/ez-rbx-ui 2>/dev/null | grep -q '^-'; then \
+		echo "$(GREEN)Initializing git submodule (ez-rbx-ui)...$(NC)"; \
+		git submodule update --init --recursive; \
+	else \
+		echo "$(YELLOW)ez-rbx-ui submodule already checked out — leaving your version as-is.$(NC)"; \
+		echo "$(YELLOW)  (run 'git submodule update --init --recursive' to reset it to the pinned version)$(NC)"; \
+	fi
 
 # Format code
 fmt:
@@ -184,13 +203,57 @@ verify-ezui: build
 	@mkdir -p testdata/ez-rbx-ui/output
 	@BIN="$(CURDIR)/$(BUILD_DIR)/$(BINARY_NAME)"; \
 	cd testdata/ez-rbx-ui && \
-	echo "$(GREEN)[1/2] Verifying plain --release bundle...$(NC)" && \
+	echo "$(GREEN)[1/3] Verifying plain --release bundle...$(NC)" && \
 	"$$BIN" -e main.lua -o output/bundle.lua --release && \
 	lua5.1 scripts/verify_bundle.lua && \
-	echo "$(GREEN)[2/2] Verifying obfuscated --release -O 2 bundle...$(NC)" && \
+	echo "$(GREEN)[2/3] Verifying obfuscated --release -O 2 bundle...$(NC)" && \
 	"$$BIN" -e main.lua -o output/bundle.lua --release -O 2 && \
+	lua5.1 scripts/verify_bundle.lua && \
+	echo "$(GREEN)[3/3] Verifying obfuscated --release -O 3 (string encryption) bundle...$(NC)" && \
+	"$$BIN" -e main.lua -o output/bundle.lua --release -O 3 && \
 	lua5.1 scripts/verify_bundle.lua
-	@echo "$(GREEN)ez-rbx-ui plain and obfuscated bundles both verified!$(NC)"
+	@echo "$(GREEN)ez-rbx-ui plain, obfuscated (-O 2), and string-encrypted (-O 3) bundles all verified!$(NC)"
+
+# Build the ez-rbx-ui example playground in every mode
+# ({normal,release} x {O0,O1,O2,O3}), syntax-check each, then serve one
+# (SMOKE_MODE) so it can be loaded in Roblox via loadstring+HttpGet.
+#   make smoke-test                                  # build all 8, serve $(SMOKE_MODE) on :$(SMOKE_PORT)
+#   make smoke-test SMOKE_MODE=o2 SMOKE_PORT=8081    # serve a different mode/port
+#   make smoke-test SMOKE_SERVE=0                    # build + syntax-check all 8, don't serve (CI)
+smoke-test: build
+	@if [ ! -f "$(SMOKE_ENTRY)" ]; then \
+		echo "$(YELLOW)ez-rbx-ui submodule missing — run: git submodule update --init --recursive$(NC)"; \
+		exit 1; \
+	fi
+	@mkdir -p "$(SMOKE_DIR)" "$(dir $(SMOKE_LIB_OUT))"
+	@BIN="$(CURDIR)/$(BUILD_DIR)/$(BINARY_NAME)"; \
+	echo "$(GREEN)Building ez-rbx-ui library bundle (example dependency)...$(NC)"; \
+	"$$BIN" -e "$(SMOKE_LIB_ENTRY)" -o "$(SMOKE_LIB_OUT)" >/dev/null || { echo "$(RED)library bundle failed$(NC)"; exit 1; }; \
+	echo "$(GREEN)Building example in all modes -> $(SMOKE_DIR)/$(NC)"; \
+	fail=0; serveflags=""; servefound=0; \
+	for spec in "normal:" "o1:-O 1" "o2:-O 2" "o3:-O 3" "release:--release" "release-o1:--release -O 1" "release-o2:--release -O 2" "release-o3:--release -O 3"; do \
+		name="$${spec%%:*}"; flags="$${spec#*:}"; \
+		out="$(SMOKE_DIR)/ezui-$$name.lua"; \
+		printf "  %-12s " "$$name"; \
+		if "$$BIN" -e "$(SMOKE_ENTRY)" -o "$$out" $$flags >/dev/null 2>&1 && [ -s "$$out" ]; then \
+			if command -v luac5.1 >/dev/null 2>&1 && ! luac5.1 -p "$$out" >/dev/null 2>&1; then \
+				echo "$(RED)PARSE FAILED$(NC)"; fail=1; \
+			else \
+				echo "$(GREEN)OK$(NC) ($$(wc -c < "$$out") bytes)"; \
+			fi; \
+		else \
+			echo "$(RED)BUNDLE FAILED$(NC)"; fail=1; \
+		fi; \
+		if [ "$$name" = "$(SMOKE_MODE)" ]; then serveflags="$$flags"; servefound=1; fi; \
+	done; \
+	if [ "$$fail" -ne 0 ]; then echo "$(RED)smoke-test: one or more modes failed$(NC)"; exit 1; fi; \
+	echo "$(GREEN)All 8 modes built and parse OK.$(NC)"; \
+	if [ "$(SMOKE_SERVE)" != "1" ]; then echo "$(YELLOW)SMOKE_SERVE=0 — skipping serve.$(NC)"; exit 0; fi; \
+	if [ "$$servefound" -ne 1 ]; then \
+		echo "$(RED)Unknown SMOKE_MODE='$(SMOKE_MODE)' (valid: normal o1 o2 o3 release release-o1 release-o2 release-o3)$(NC)"; exit 1; \
+	fi; \
+	echo "$(GREEN)Serving '$(SMOKE_MODE)' on :$(SMOKE_PORT) — in Roblox: loadstring(game:HttpGet('http://localhost:$(SMOKE_PORT)/ezui-$(SMOKE_MODE).lua'))()$(NC)"; \
+	"$$BIN" -e "$(SMOKE_ENTRY)" -o "$(SMOKE_DIR)/ezui-$(SMOKE_MODE).lua" $$serveflags --serve --port $(SMOKE_PORT)
 
 # Create release build (optimized)
 release: check

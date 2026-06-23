@@ -1,6 +1,8 @@
 package bundler
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -132,4 +134,61 @@ func TestResolveModulePath(t *testing.T) {
 			assert.Equal(t, tt.want, got, "resolveModulePath(%q, %q) should return correct path", tt.currentFile, tt.modulePath)
 		})
 	}
+}
+
+func TestCanonicalKey(t *testing.T) {
+	dir := t.TempDir()
+	// layout: <dir>/main.lua, <dir>/core/theme.lua, <dir>/components/button.lua
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "core"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "components"), 0o755))
+	for _, p := range []string{"main.lua", "core/theme.lua", "components/button.lua"} {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, p), []byte("return {}"), 0o644))
+	}
+	b, err := NewBundler(filepath.Join(dir, "main.lua"), false, false)
+	require.NoError(t, err)
+
+	entry := filepath.Join(dir, "main.lua")
+	button := filepath.Join(dir, "components/button.lua")
+	cases := []struct{ cur, mod, want string }{
+		{entry, "core/theme", "core/theme"},
+		{entry, "core/theme.lua", "core/theme"},
+		{button, "../core/theme", "core/theme"}, // same module, different caller/spelling
+		{button, "./sibling", "components/sibling"},
+		{entry, "/core/theme", "core/theme"}, // base-relative spelling
+	}
+	for _, c := range cases {
+		if got := b.canonicalKey(c.cur, c.mod); got != c.want {
+			t.Errorf("canonicalKey(%q,%q)=%q want %q", c.cur, c.mod, got, c.want)
+		}
+	}
+}
+
+func TestProcessFile_KeysByCanonical(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "core"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "core/util.lua"), []byte("return {}"), 0o644))
+	// entry requires it WITH a .lua suffix; key must canonicalize to "core/util"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.lua"),
+		[]byte(`local U = require("core/util.lua")`+"\nreturn U"), 0o644))
+
+	b, err := NewBundler(filepath.Join(dir, "main.lua"), false, false)
+	require.NoError(t, err)
+	_, err = b.Bundle(false)
+	require.NoError(t, err)
+
+	mods := b.GetModules()
+	if _, ok := mods["core/util"]; !ok {
+		t.Fatalf("expected canonical key %q, got keys: %v", "core/util", keysOf(mods))
+	}
+	if _, ok := mods["core/util.lua"]; ok {
+		t.Fatalf("must not key by the as-written .lua spelling")
+	}
+}
+
+func keysOf(m map[string]string) []string {
+	var k []string
+	for key := range m {
+		k = append(k, key)
+	}
+	return k
 }

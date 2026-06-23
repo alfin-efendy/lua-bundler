@@ -88,6 +88,9 @@ func (b *Bundler) Bundle(releaseMode bool) (string, error) {
 		return "", err
 	}
 
+	// Rewrite module calls on the entry (raw source) before obfuscation.
+	mainContent = b.rewriteModuleCalls(mainContent, b.entryFile)
+
 	// Obfuscate main content (entry file) if obfuscation is enabled
 	if b.obfuscateLevel > 0 && b.obfuscator != nil {
 		mainContent = b.obfuscator.Obfuscate(mainContent)

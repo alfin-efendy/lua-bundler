@@ -1,6 +1,8 @@
 package bundler
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -25,12 +27,14 @@ function remote.fetch()
 end
 return remote`
 
-	mainContent := `local helper = require('./helper.lua')
+	rawContent := `local helper = require('./helper.lua')
 local remote = loadstring(game:HttpGet('https://example.com/remote.lua'))()
 
 print(helper.greet())
 print(remote.fetch())`
 
+	// Simulate the pipeline: rewrite calls before passing to generateBundle.
+	mainContent := b.rewriteModuleCalls(rawContent, "test.lua")
 	result := b.generateBundle(mainContent)
 
 	tests := []struct {
@@ -79,7 +83,8 @@ print(remote.fetch())`
 		{
 			name: "replaces require calls",
 			check: func(s string) bool {
-				return strings.Contains(s, `loadModule("./helper.lua")`) &&
+				// rewriteModuleCalls uses canonical keys (no leading "./" or ".lua" suffix).
+				return strings.Contains(s, `loadModule("helper")`) &&
 					!strings.Contains(s, `require('./helper.lua')`)
 			},
 			message: "should replace require calls with loadModule",
@@ -170,6 +175,33 @@ func TestGenerateBundle_EmptyModules(t *testing.T) {
 	assert.Contains(t, result, `print("Hello World")`, "generateBundle() should contain original main content")
 }
 
+func TestGenerateBundle_InjectsDecoderAtLevel3(t *testing.T) {
+	b, err := NewBundler("test.lua", false, false)
+	require.NoError(t, err)
+	b.SetObfuscationLevel(3)
+	out := b.generateBundle(`return 1`)
+
+	// Decoder defined exactly once, before EmbeddedModules.
+	if strings.Count(out, "local _d=") != 1 {
+		t.Fatalf("expected exactly one _d decoder, got %d:\n%s", strings.Count(out, "local _d="), out)
+	}
+	di := strings.Index(out, "local _d=")
+	ei := strings.Index(out, "local EmbeddedModules")
+	if di < 0 || ei < 0 || di > ei {
+		t.Fatalf("decoder must precede EmbeddedModules (d=%d, e=%d)", di, ei)
+	}
+}
+
+func TestGenerateBundle_NoDecoderBelowLevel3(t *testing.T) {
+	b, err := NewBundler("test.lua", false, false)
+	require.NoError(t, err)
+	b.SetObfuscationLevel(2)
+	out := b.generateBundle(`return 1`)
+	if strings.Contains(out, "local _d=") {
+		t.Fatalf("level 2 bundle must not contain a decoder:\n%s", out)
+	}
+}
+
 func TestGenerateBundle_ModuleIndentation(t *testing.T) {
 	b, err := NewBundler("test.lua", false, false)
 	require.NoError(t, err, "NewBundler should not fail")
@@ -210,5 +242,83 @@ return test`
 				assert.True(t, strings.HasPrefix(line, "    "), "Module line should be indented with 4 spaces: %q", line)
 			}
 		}
+	}
+}
+
+func TestRewriteModuleCalls_ModuleBodyCanonical(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "core"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "components"), 0o755))
+	for _, p := range []string{"main.lua", "core/theme.lua", "components/button.lua"} {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, p), []byte("return {}"), 0o644))
+	}
+	b, err := NewBundler(filepath.Join(dir, "main.lua"), false, false)
+	require.NoError(t, err)
+
+	button := filepath.Join(dir, "components/button.lua")
+	// button.lua requires the shared core/theme via a relative path
+	got := b.rewriteModuleCalls(`local T = require("../core/theme")`, button)
+	if !strings.Contains(got, `loadModule("core/theme")`) {
+		t.Fatalf("module-body require not rewritten to canonical loadModule: %q", got)
+	}
+}
+
+func TestRewriteModuleCalls_SkipsFunctionWrappedHttpGet(t *testing.T) {
+	b, err := NewBundler("x.lua", false, false)
+	require.NoError(t, err)
+	in := `queue_on_teleport("loadstring(game:HttpGet('https://e/x.lua'))()")`
+	if got := b.rewriteModuleCalls(in, "x.lua"); got != in {
+		t.Fatalf("function-wrapped HttpGet must NOT be rewritten: %q", got)
+	}
+}
+
+func TestRewriteModuleCalls_SkipsBareFunctionWrappedHttpGet(t *testing.T) {
+	b, err := NewBundler("x.lua", false, false)
+	require.NoError(t, err)
+	in := `queue_on_teleport(loadstring(game:HttpGet("https://e/x.lua"))())`
+	if got := b.rewriteModuleCalls(in, "x.lua"); got != in {
+		t.Fatalf("bare function-wrapped HttpGet must NOT be rewritten: %q", got)
+	}
+}
+
+func TestRewriteModuleCalls_DirectHttpGet(t *testing.T) {
+	b, err := NewBundler("x.lua", false, false)
+	require.NoError(t, err)
+	in := `loadstring(game:HttpGet("https://e/x.lua"))()`
+	got := b.rewriteModuleCalls(in, "x.lua")
+	if !strings.Contains(got, `loadModule("https://e/x.lua")`) {
+		t.Fatalf("direct HttpGet must be rewritten: %q", got)
+	}
+}
+
+func TestGenerateBundle_LoadModuleDeclaredBeforeClosures(t *testing.T) {
+	b, err := NewBundler("test.lua", false, false)
+	require.NoError(t, err)
+	b.modules["a"] = `local B = loadModule("b") return B`
+	b.modules["b"] = `return 1`
+	out := b.generateBundle("return loadModule(\"a\")")
+
+	di := strings.Index(out, "local function loadModule")
+	ci := strings.Index(out, "EmbeddedModules[\"")
+	if di < 0 || ci < 0 {
+		t.Fatalf("missing loadModule decl or EmbeddedModules assignment:\n%s", out)
+	}
+	if di > ci {
+		t.Fatalf("loadModule must be declared BEFORE EmbeddedModules closures (d=%d c=%d) so closures capture it as an upvalue", di, ci)
+	}
+}
+
+func TestGenerateBundle_LoadModuleMemoizes(t *testing.T) {
+	b, err := NewBundler("test.lua", false, false)
+	require.NoError(t, err)
+	out := b.generateBundle("return 1")
+	// The helper must cache: a second loadModule(url) returns the cached value
+	// rather than re-invoking EmbeddedModules[url].
+	if !strings.Contains(out, "EmbeddedModules[url]()") {
+		t.Fatalf("loadModule should still invoke embedded modules: %s", out)
+	}
+	// A cache table + a cached-flag table must be present.
+	if !strings.Contains(out, "_cache") || !strings.Contains(out, "_cached") {
+		t.Fatalf("loadModule must memoize via _cache/_cached: %s", out)
 	}
 }
