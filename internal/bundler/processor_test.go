@@ -162,3 +162,33 @@ func TestCanonicalKey(t *testing.T) {
 		}
 	}
 }
+
+func TestProcessFile_KeysByCanonical(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "core"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "core/util.lua"), []byte("return {}"), 0o644))
+	// entry requires it WITH a .lua suffix; key must canonicalize to "core/util"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.lua"),
+		[]byte(`local U = require("core/util.lua")`+"\nreturn U"), 0o644))
+
+	b, err := NewBundler(filepath.Join(dir, "main.lua"), false, false)
+	require.NoError(t, err)
+	_, err = b.Bundle(false)
+	require.NoError(t, err)
+
+	mods := b.GetModules()
+	if _, ok := mods["core/util"]; !ok {
+		t.Fatalf("expected canonical key %q, got keys: %v", "core/util", keysOf(mods))
+	}
+	if _, ok := mods["core/util.lua"]; ok {
+		t.Fatalf("must not key by the as-written .lua spelling")
+	}
+}
+
+func keysOf(m map[string]string) []string {
+	var k []string
+	for key := range m {
+		k = append(k, key)
+	}
+	return k
+}

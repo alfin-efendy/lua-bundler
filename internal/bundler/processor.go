@@ -176,9 +176,10 @@ func (b *Bundler) processFile(filePath string, content string) error {
 			// Process local files (relative, absolute from base, or subdirectory)
 			if b.isLocalModule(modulePath) {
 				resolvedPath := b.resolveModulePath(filePath, modulePath)
+				key := b.canonicalKey(filePath, modulePath)
 
-				// Skip if already processed
-				if _, exists := b.modules[modulePath]; exists {
+				// Skip if already processed (by canonical key)
+				if _, exists := b.modules[key]; exists {
 					continue
 				}
 
@@ -198,13 +199,13 @@ func (b *Bundler) processFile(filePath string, content string) error {
 					moduleContent = b.obfuscator.Obfuscate(moduleContent)
 				}
 
-				b.modules[modulePath] = moduleContent
+				b.modules[key] = moduleContent
 
 				if b.verbose {
-					fmt.Printf("📄 Processed: %s\n", modulePath)
+					fmt.Printf("📄 Processed: %s\n", key)
 				}
 
-				// Process file recursively
+				// Process file recursively (pass raw fileContent so nested requires remain intact)
 				if err := b.processFile(resolvedPath, string(fileContent)); err != nil {
 					return err
 				}
