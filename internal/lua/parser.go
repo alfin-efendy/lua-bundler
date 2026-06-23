@@ -788,7 +788,7 @@ func (p *parser) skipTypeAtom() {
 		if p.atEnd() {
 			return
 		}
-		p.advance() // name / nil / true / false / string / number / typeof / ...
+		p.advance()         // name / nil / true / false / string / number / typeof / ...
 		for p.isText(".") { // dotted module type a.b.C
 			p.advance()
 			if !p.atEnd() {
@@ -829,8 +829,8 @@ func (p *parser) isName2(i int) bool {
 // parseTypeAlias consumes a Luau `type X = ...` or `export type X = ...`
 // statement and returns a TypeAliasStat with Raw == nil so the printer emits nothing.
 func (p *parser) parseTypeAlias() (Stat, error) {
-	p.accept("export")  // optional 'export'
-	p.advance()         // 'type'
+	p.accept("export") // optional 'export'
+	p.advance()        // 'type'
 	if !p.isName() {
 		return nil, p.errf("expected type name")
 	}
