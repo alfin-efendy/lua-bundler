@@ -178,8 +178,12 @@ func scanNumber(src string, i int) int {
 }
 
 // multiCharOps are Lua operators of length >= 2, longest first so greedy
-// matching prefers "..." over ".." over ".".
-var multiCharOps = []string{"...", "..", "==", "~=", "<=", ">=", "::", "//", "<<", ">>"}
+// matching prefers "..." over "..=" over ".." over ".".
+var multiCharOps = []string{
+	"...", "..=", "//=", "<<", ">>",
+	"..", "==", "~=", "<=", ">=", "::", "//",
+	"+=", "-=", "*=", "/=", "%=", "^=",
+}
 
 // scanOp consumes one operator/punctuation token starting at i.
 func scanOp(src string, i int) int {

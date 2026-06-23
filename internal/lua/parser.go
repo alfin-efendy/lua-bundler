@@ -368,17 +368,364 @@ func (p *parser) parseTable() (Expr, error) {
 	return tbl, nil
 }
 
-// parseBlock is defined in Task 5. For Task 3 a temporary version supports only
-// a single `return <expr>` so expression tests can run; Task 5 replaces it.
+// blockEnd reports whether the current token closes a block.
+func (p *parser) blockEnd() bool {
+	switch p.peekText() {
+	case "", "end", "else", "elseif", "until":
+		return true
+	}
+	return false
+}
+
 func (p *parser) parseBlock() ([]Stat, error) {
-	if p.accept("return") {
+	var body []Stat
+	for !p.blockEnd() {
+		if p.accept(";") {
+			continue
+		}
+		if p.peekText() == "return" {
+			ret, err := p.parseReturn()
+			if err != nil {
+				return nil, err
+			}
+			body = append(body, ret)
+			break // return must be last in a block
+		}
+		s, err := p.parseStatement()
+		if err != nil {
+			return nil, err
+		}
+		if s != nil {
+			body = append(body, s)
+		}
+	}
+	return body, nil
+}
+
+func (p *parser) parseReturn() (Stat, error) {
+	p.advance() // 'return'
+	ret := &ReturnStat{}
+	if !p.blockEnd() && !p.isText(";") {
+		for {
+			e, err := p.parseExpr()
+			if err != nil {
+				return nil, err
+			}
+			ret.Values = append(ret.Values, e)
+			if !p.accept(",") {
+				break
+			}
+		}
+	}
+	p.accept(";")
+	return ret, nil
+}
+
+func (p *parser) parseStatement() (Stat, error) {
+	switch p.peekText() {
+	case "local":
+		return p.parseLocal()
+	case "do":
+		p.advance()
+		body, err := p.parseBlock()
+		if err != nil {
+			return nil, err
+		}
+		if err := p.expect("end"); err != nil {
+			return nil, err
+		}
+		return &DoStat{Body: body}, nil
+	case "while":
+		p.advance()
+		cond, err := p.parseExpr()
+		if err != nil {
+			return nil, err
+		}
+		if err := p.expect("do"); err != nil {
+			return nil, err
+		}
+		body, err := p.parseBlock()
+		if err != nil {
+			return nil, err
+		}
+		if err := p.expect("end"); err != nil {
+			return nil, err
+		}
+		return &WhileStat{Cond: cond, Body: body}, nil
+	case "repeat":
+		p.advance()
+		body, err := p.parseBlock()
+		if err != nil {
+			return nil, err
+		}
+		if err := p.expect("until"); err != nil {
+			return nil, err
+		}
+		cond, err := p.parseExpr()
+		if err != nil {
+			return nil, err
+		}
+		return &RepeatStat{Body: body, Cond: cond}, nil
+	case "if":
+		return p.parseIf()
+	case "for":
+		return p.parseFor()
+	case "function":
+		return p.parseFuncStat()
+	case "break":
+		p.advance()
+		return &BreakStat{}, nil
+	case "continue":
+		p.advance()
+		return &ContinueStat{}, nil
+	case "goto":
+		p.advance()
+		if !p.isName() {
+			return nil, p.errf("expected label after goto")
+		}
+		return &GotoStat{Label: p.advance().text}, nil
+	case "::":
+		p.advance()
+		if !p.isName() {
+			return nil, p.errf("expected label name")
+		}
+		name := p.advance().text
+		if err := p.expect("::"); err != nil {
+			return nil, err
+		}
+		return &LabelStat{Name: name}, nil
+	}
+	// Expression statement: call or assignment.
+	return p.parseExprStatement()
+}
+
+func (p *parser) parseLocal() (Stat, error) {
+	p.advance() // 'local'
+	if p.peekText() == "function" {
+		p.advance()
+		if !p.isName() {
+			return nil, p.errf("expected function name")
+		}
+		name := &NameExpr{Name: p.advance().text}
+		fn, err := p.parseFuncBody()
+		if err != nil {
+			return nil, err
+		}
+		return &LocalFuncStat{Name: name, Func: fn}, nil
+	}
+	ls := &LocalStat{}
+	for {
+		if !p.isName() {
+			return nil, p.errf("expected local name, got %q", p.peekText())
+		}
+		ls.Names = append(ls.Names, &NameExpr{Name: p.advance().text})
+		p.skipTypeAnnotation()
+		if !p.accept(",") {
+			break
+		}
+	}
+	if p.accept("=") {
+		for {
+			e, err := p.parseExpr()
+			if err != nil {
+				return nil, err
+			}
+			ls.Values = append(ls.Values, e)
+			if !p.accept(",") {
+				break
+			}
+		}
+	}
+	return ls, nil
+}
+
+func (p *parser) parseIf() (Stat, error) {
+	st := &IfStat{}
+	p.advance() // 'if'
+	for {
+		cond, err := p.parseExpr()
+		if err != nil {
+			return nil, err
+		}
+		if err := p.expect("then"); err != nil {
+			return nil, err
+		}
+		blk, err := p.parseBlock()
+		if err != nil {
+			return nil, err
+		}
+		st.Conds = append(st.Conds, cond)
+		st.Blocks = append(st.Blocks, blk)
+		if !p.accept("elseif") {
+			break
+		}
+	}
+	if p.accept("else") {
+		blk, err := p.parseBlock()
+		if err != nil {
+			return nil, err
+		}
+		st.HasElse = true
+		st.Else = blk
+	}
+	if err := p.expect("end"); err != nil {
+		return nil, err
+	}
+	return st, nil
+}
+
+func (p *parser) parseFor() (Stat, error) {
+	p.advance() // 'for'
+	if !p.isName() {
+		return nil, p.errf("expected loop variable")
+	}
+	first := &NameExpr{Name: p.advance().text}
+	p.skipTypeAnnotation()
+	if p.accept("=") {
+		start, err := p.parseExpr()
+		if err != nil {
+			return nil, err
+		}
+		if err := p.expect(","); err != nil {
+			return nil, err
+		}
+		stop, err := p.parseExpr()
+		if err != nil {
+			return nil, err
+		}
+		var step Expr
+		if p.accept(",") {
+			step, err = p.parseExpr()
+			if err != nil {
+				return nil, err
+			}
+		}
+		if err := p.expect("do"); err != nil {
+			return nil, err
+		}
+		body, err := p.parseBlock()
+		if err != nil {
+			return nil, err
+		}
+		if err := p.expect("end"); err != nil {
+			return nil, err
+		}
+		return &NumericForStat{Var: first, Start: start, Stop: stop, Step: step, Body: body}, nil
+	}
+	// generic for
+	vars := []*NameExpr{first}
+	for p.accept(",") {
+		if !p.isName() {
+			return nil, p.errf("expected loop variable")
+		}
+		vars = append(vars, &NameExpr{Name: p.advance().text})
+		p.skipTypeAnnotation()
+	}
+	if err := p.expect("in"); err != nil {
+		return nil, err
+	}
+	var exprs []Expr
+	for {
 		e, err := p.parseExpr()
 		if err != nil {
 			return nil, err
 		}
-		return []Stat{&ReturnStat{Values: []Expr{e}}}, nil
+		exprs = append(exprs, e)
+		if !p.accept(",") {
+			break
+		}
 	}
-	return nil, nil
+	if err := p.expect("do"); err != nil {
+		return nil, err
+	}
+	body, err := p.parseBlock()
+	if err != nil {
+		return nil, err
+	}
+	if err := p.expect("end"); err != nil {
+		return nil, err
+	}
+	return &GenericForStat{Vars: vars, Exprs: exprs, Body: body}, nil
+}
+
+func (p *parser) parseFuncStat() (Stat, error) {
+	p.advance() // 'function'
+	if !p.isName() {
+		return nil, p.errf("expected function name")
+	}
+	var target Expr = &NameExpr{Name: p.advance().text}
+	isMethod := false
+	for {
+		if p.accept(".") {
+			if !p.isName() {
+				return nil, p.errf("expected field name")
+			}
+			target = &IndexExpr{Obj: target, Field: p.advance().text}
+			continue
+		}
+		if p.accept(":") {
+			if !p.isName() {
+				return nil, p.errf("expected method name")
+			}
+			target = &IndexExpr{Obj: target, Field: p.advance().text, IsMethod: true}
+			isMethod = true
+		}
+		break
+	}
+	fn, err := p.parseFuncBody()
+	if err != nil {
+		return nil, err
+	}
+	_ = isMethod // self injection deferred to Task 7 scope resolver
+	return &FuncStat{Target: target, IsMethod: isMethod, Func: fn}, nil
+}
+
+func (p *parser) parseExprStatement() (Stat, error) {
+	first, err := p.parseSuffixed()
+	if err != nil {
+		return nil, err
+	}
+	// Assignment? (=, or a Luau compound op, or a comma for multi-assign)
+	if p.isText(",") || isAssignOp(p.peekText()) {
+		targets := []Expr{first}
+		for p.accept(",") {
+			t, err := p.parseSuffixed()
+			if err != nil {
+				return nil, err
+			}
+			targets = append(targets, t)
+		}
+		op := p.peekText()
+		if !isAssignOp(op) {
+			return nil, p.errf("expected assignment operator, got %q", op)
+		}
+		p.advance()
+		var vals []Expr
+		for {
+			v, err := p.parseExpr()
+			if err != nil {
+				return nil, err
+			}
+			vals = append(vals, v)
+			if !p.accept(",") {
+				break
+			}
+		}
+		return &AssignStat{Targets: targets, Op: op, Values: vals}, nil
+	}
+	// Otherwise it must be a call statement.
+	if _, ok := first.(*CallExpr); !ok {
+		return nil, p.errf("expected statement, got bare expression")
+	}
+	return &CallStat{Call: first}, nil
+}
+
+func isAssignOp(op string) bool {
+	switch op {
+	case "=", "+=", "-=", "*=", "/=", "//=", "%=", "^=", "..=":
+		return true
+	}
+	return false
 }
 
 // Type-annotation skippers are implemented fully in Task 6. Temporary no-ops:
