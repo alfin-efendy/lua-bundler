@@ -170,5 +170,7 @@ func (r *resolver) expr(x Expr, s *scope) {
 		}
 	case *NumberExpr, *BoolExpr, *NilExpr, *VarargExpr:
 		// leaves
+	case nil:
+		// nil optional expression — nothing to resolve
 	}
 }

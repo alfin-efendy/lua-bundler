@@ -2,16 +2,6 @@ package lua
 
 import "testing"
 
-func collectNames(n Node, out *[]*NameExpr) {
-	// minimal walker for tests
-	switch v := n.(type) {
-	case *Chunk:
-		for _, s := range v.Body {
-			collectNames(s, out)
-		}
-	}
-}
-
 func TestResolve_LocalBound(t *testing.T) {
 	c, err := Parse("local x = 1\nreturn x")
 	if err != nil {
@@ -61,4 +51,49 @@ func TestResolve_FieldNotResolved(t *testing.T) {
 		t.Fatal("t should be bound")
 	}
 	// idx.Field is a string, never a NameExpr — nothing to resolve, by design.
+}
+
+func TestResolve_Interp(t *testing.T) {
+	c, err := Parse("local n = 1\nreturn `x {n}`")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !resolve(c) {
+		t.Fatal("expected hasInterp=true for a chunk with a backtick string")
+	}
+	c2, err := Parse("local n = 1\nreturn n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolve(c2) {
+		t.Fatal("expected hasInterp=false for a plain chunk")
+	}
+}
+
+func TestResolve_MethodSelf(t *testing.T) {
+	c, err := Parse("function a:m() return self end")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolve(c)
+	fs := c.Body[0].(*FuncStat)
+	ret := fs.Func.Body[0].(*ReturnStat)
+	self := ret.Values[0].(*NameExpr)
+	if self.Binding == nil {
+		t.Fatal("self must be bound inside a method body")
+	}
+}
+
+func TestResolve_RepeatUntilSharedScope(t *testing.T) {
+	c, err := Parse("repeat local x = 1 until x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolve(c)
+	rs := c.Body[0].(*RepeatStat)
+	decl := rs.Body[0].(*LocalStat).Names[0]
+	use, ok := rs.Cond.(*NameExpr)
+	if !ok || use.Binding == nil || use.Binding != decl.Binding {
+		t.Fatalf("until condition must resolve x to the body's local: %#v", rs.Cond)
+	}
 }
