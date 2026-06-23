@@ -31,13 +31,15 @@ func TestObfuscate_Level2_PreservesGlobalsAndRequire(t *testing.T) {
 	out := o.Obfuscate(`local M = require("core/x")` + "\nreturn M.y")
 	assert.Contains(t, out, `require("core/x")`)
 	assert.Contains(t, out, ".y")
+	assert.Contains(t, out, "_0x") // the local M must be renamed to an obfuscated name
 }
 
 func TestObfuscate_FallsBackOnParseError(t *testing.T) {
-	o := NewObfuscator(2)
-	// Deliberately broken syntax: must not panic, must return minified-ish text.
-	out := o.Obfuscate("local = = = 5 $$$")
+	broken := "local = = = 5 $$$"
+	out := NewObfuscator(2).Obfuscate(broken)
 	require.NotEmpty(t, out)
+	// On parse failure level 2 must fall back to the level-1 (minify) result.
+	assert.Equal(t, NewObfuscator(1).Obfuscate(broken), out)
 }
 
 func TestObfuscate_PerUnitIsolation(t *testing.T) {
