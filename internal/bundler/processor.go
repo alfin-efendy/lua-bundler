@@ -152,12 +152,19 @@ func (b *Bundler) processFile(filePath string, content string) error {
 			// Apply env var substitution to HTTP module content
 			httpContent = substituteEnvVars(httpContent, b.envVars, b.verbose)
 
+			// Rewrite nested HttpGet/require calls before storing, so the embedded
+			// body calls loadModule() instead of live-fetching at runtime.
+			// Pass the raw (pre-rewrite) content to processFile so the HttpGet
+			// patterns are still present for nested dependency discovery.
+			rawHTTPContent := httpContent
+			httpContent = b.rewriteModuleCalls(httpContent, url)
+
 			// Mark as HTTP module (do not obfuscate)
 			b.httpModules[url] = true
 			b.modules[url] = httpContent
 
-			// Process downloaded content (might have requires in it)
-			if err := b.processFile(url, httpContent); err != nil {
+			// Process raw downloaded content (might have nested requires/HttpGets in it)
+			if err := b.processFile(url, rawHTTPContent); err != nil {
 				return err
 			}
 		}

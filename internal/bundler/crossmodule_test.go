@@ -19,6 +19,40 @@ func findLua() string {
 	return ""
 }
 
+func TestBundle_RemoteModuleBodyRewritten(t *testing.T) {
+	dir := t.TempDir()
+	write := func(p, s string) {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, p), []byte(s), 0o644))
+	}
+	leaf := "file://" + filepath.Join(dir, "leaf.lua")
+	remote := "file://" + filepath.Join(dir, "remote.lua")
+	write("leaf.lua", `return { tag = "LEAF" }`)
+	// remote module's BODY pulls the leaf via HttpGet — must be rewritten to loadModule.
+	write("remote.lua", `local L = loadstring(game:HttpGet("`+leaf+`"))()
+return { leaf = L.tag }`)
+	write("main.lua", `local R = loadstring(game:HttpGet("`+remote+`"))()
+print("remote.leaf="..R.leaf)`)
+
+	b, err := NewBundler(filepath.Join(dir, "main.lua"), false, false)
+	require.NoError(t, err)
+	out, err := b.Bundle(false)
+	require.NoError(t, err)
+
+	// Both remote and leaf embedded (discovery), and the remote BODY must call loadModule(leaf), not raw HttpGet.
+	assert.Contains(t, b.GetModules(), remote)
+	assert.Contains(t, b.GetModules(), leaf)
+	assert.Contains(t, out, `loadModule("`+leaf+`")`, "remote module body's HttpGet must be rewritten to loadModule")
+
+	if lua := findLua(); lua != "" {
+		bp := filepath.Join(dir, "bundle.lua")
+		require.NoError(t, os.WriteFile(bp, []byte(out), 0o644))
+		got, rerr := exec.Command(lua, bp).CombinedOutput()
+		require.NoErrorf(t, rerr, "bundle failed to run: %s", got)
+		assert.Contains(t, string(got), "remote.leaf=LEAF",
+			"remote module must resolve its leaf via the embedded loadModule (got: %s)", got)
+	}
+}
+
 func TestBundle_CrossModuleRequire_RunsAndMemoizes(t *testing.T) {
 	dir := t.TempDir()
 	write := func(p, s string) {
