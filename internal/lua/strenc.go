@@ -278,13 +278,15 @@ func (e *encryptor) encode(s *StringExpr) (Expr, bool) {
 	}, true
 }
 
-// isProtectedCall reports whether v is a require(...) or X:HttpGet(...) call
-// whose string argument must not be encrypted.
+// isProtectedCall reports whether v is a require(...), loadModule(...), or
+// X:HttpGet(...) call whose string argument must not be encrypted.
+// loadModule is included because rewriteModuleCalls rewrites require() into
+// loadModule() before obfuscation runs; the key must survive as a literal.
 func isProtectedCall(v *CallExpr) bool {
 	fn := unwrapParen(v.Fn)
 	switch f := fn.(type) {
 	case *NameExpr:
-		return f.Name == "require"
+		return f.Name == "require" || f.Name == "loadModule"
 	case *IndexExpr:
 		return f.IsMethod && f.Field == "HttpGet"
 	}

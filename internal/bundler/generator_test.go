@@ -1,6 +1,8 @@
 package bundler
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -25,12 +27,14 @@ function remote.fetch()
 end
 return remote`
 
-	mainContent := `local helper = require('./helper.lua')
+	rawContent := `local helper = require('./helper.lua')
 local remote = loadstring(game:HttpGet('https://example.com/remote.lua'))()
 
 print(helper.greet())
 print(remote.fetch())`
 
+	// Simulate the pipeline: rewrite calls before passing to generateBundle.
+	mainContent := b.rewriteModuleCalls(rawContent, "test.lua")
 	result := b.generateBundle(mainContent)
 
 	tests := []struct {
@@ -79,7 +83,8 @@ print(remote.fetch())`
 		{
 			name: "replaces require calls",
 			check: func(s string) bool {
-				return strings.Contains(s, `loadModule("./helper.lua")`) &&
+				// rewriteModuleCalls uses canonical keys (no leading "./" or ".lua" suffix).
+				return strings.Contains(s, `loadModule("helper")`) &&
 					!strings.Contains(s, `require('./helper.lua')`)
 			},
 			message: "should replace require calls with loadModule",
@@ -237,5 +242,42 @@ return test`
 				assert.True(t, strings.HasPrefix(line, "    "), "Module line should be indented with 4 spaces: %q", line)
 			}
 		}
+	}
+}
+
+func TestRewriteModuleCalls_ModuleBodyCanonical(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "core"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "components"), 0o755))
+	for _, p := range []string{"main.lua", "core/theme.lua", "components/button.lua"} {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, p), []byte("return {}"), 0o644))
+	}
+	b, err := NewBundler(filepath.Join(dir, "main.lua"), false, false)
+	require.NoError(t, err)
+
+	button := filepath.Join(dir, "components/button.lua")
+	// button.lua requires the shared core/theme via a relative path
+	got := b.rewriteModuleCalls(`local T = require("../core/theme")`, button)
+	if !strings.Contains(got, `loadModule("core/theme")`) {
+		t.Fatalf("module-body require not rewritten to canonical loadModule: %q", got)
+	}
+}
+
+func TestRewriteModuleCalls_SkipsFunctionWrappedHttpGet(t *testing.T) {
+	b, err := NewBundler("x.lua", false, false)
+	require.NoError(t, err)
+	in := `queue_on_teleport("loadstring(game:HttpGet('https://e/x.lua'))()")`
+	if got := b.rewriteModuleCalls(in, "x.lua"); got != in {
+		t.Fatalf("function-wrapped HttpGet must NOT be rewritten: %q", got)
+	}
+}
+
+func TestRewriteModuleCalls_DirectHttpGet(t *testing.T) {
+	b, err := NewBundler("x.lua", false, false)
+	require.NoError(t, err)
+	in := `loadstring(game:HttpGet("https://e/x.lua"))()`
+	got := b.rewriteModuleCalls(in, "x.lua")
+	if !strings.Contains(got, `loadModule("https://e/x.lua")`) {
+		t.Fatalf("direct HttpGet must be rewritten: %q", got)
 	}
 }

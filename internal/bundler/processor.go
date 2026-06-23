@@ -193,6 +193,7 @@ func (b *Bundler) processFile(filePath string, content string) error {
 
 				// Apply env var substitution before obfuscation
 				moduleContent = substituteEnvVars(moduleContent, b.envVars, b.verbose)
+				moduleContent = b.rewriteModuleCalls(moduleContent, resolvedPath)
 
 				// Obfuscate local module if obfuscation is enabled
 				if b.obfuscateLevel > 0 && b.obfuscator != nil {

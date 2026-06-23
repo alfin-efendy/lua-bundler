@@ -56,56 +56,50 @@ func (b *Bundler) generateBundle(mainContent string) string {
 	output.WriteString("    return require(url)\n")
 	output.WriteString("end\n\n")
 
-	// Replace require() and loadstring() in main content
-	processedMain := b.replaceModuleCalls(mainContent)
-
 	output.WriteString("-- Main Script\n")
-	output.WriteString(processedMain)
+	output.WriteString(mainContent)
 
 	return output.String()
 }
 
-// replaceModuleCalls replaces require() and loadstring() calls with loadModule() calls
-func (b *Bundler) replaceModuleCalls(content string) string {
+// rewriteModuleCalls rewrites local require() and direct loadstring(HttpGet())()
+// calls in content into loadModule(canonicalKey) calls. currentFile gives the
+// caller's location so relative require paths resolve to canonical keys. It runs
+// on raw (pre-obfuscation) source, so the function-wrapped-HttpGet skip is
+// evaluated on readable, multi-line text.
+func (b *Bundler) rewriteModuleCalls(content, currentFile string) string {
 	requireRegex := regexp.MustCompile(`require\s*\(\s*['"]([^'"]+)['"]\s*\)`)
 	httpGetRegex := regexp.MustCompile(`loadstring\s*\(\s*game:HttpGet\s*\(\s*['"]([^'"]+)['"]\s*\)\s*\)\s*\(\s*\)`)
-	// Pattern to detect HttpGet inside function calls (should NOT be replaced)
 	funcCallHttpGetRegex := regexp.MustCompile(`\w+\s*\([^)]*loadstring\s*\(\s*game:HttpGet`)
 
-	processedContent := content
+	processed := content
 
-	// Replace loadstring(game:HttpGet(...))() - but skip if inside function calls
-	lines := strings.Split(processedContent, "\n")
+	// Replace direct loadstring(game:HttpGet(url))() — skip lines where it's wrapped in a call.
+	lines := strings.Split(processed, "\n")
 	for i, line := range lines {
-		// Skip lines with HttpGet inside function calls
 		if funcCallHttpGetRegex.MatchString(line) {
 			continue
 		}
-		// Replace HttpGet pattern in this line
 		lines[i] = httpGetRegex.ReplaceAllStringFunc(line, func(match string) string {
-			matches := httpGetRegex.FindStringSubmatch(match)
-			if len(matches) > 1 {
-				url := matches[1]
-				return fmt.Sprintf("loadModule(\"%s\")", escapeString(url))
+			m := httpGetRegex.FindStringSubmatch(match)
+			if len(m) > 1 {
+				return fmt.Sprintf("loadModule(\"%s\")", escapeString(m[1]))
 			}
 			return match
 		})
 	}
-	processedContent = strings.Join(lines, "\n")
+	processed = strings.Join(lines, "\n")
 
-	// Replace require() for local files
-	processedContent = requireRegex.ReplaceAllStringFunc(processedContent, func(match string) string {
-		matches := requireRegex.FindStringSubmatch(match)
-		if len(matches) > 1 {
-			modulePath := matches[1]
-			if b.isLocalModule(modulePath) {
-				return fmt.Sprintf("loadModule(\"%s\")", escapeString(modulePath))
-			}
+	// Replace local require() with loadModule(canonicalKey).
+	processed = requireRegex.ReplaceAllStringFunc(processed, func(match string) string {
+		m := requireRegex.FindStringSubmatch(match)
+		if len(m) > 1 && b.isLocalModule(m[1]) {
+			return fmt.Sprintf("loadModule(\"%s\")", escapeString(b.canonicalKey(currentFile, m[1])))
 		}
 		return match
 	})
 
-	return processedContent
+	return processed
 }
 
 // escapeString escapes special characters in strings for Lua

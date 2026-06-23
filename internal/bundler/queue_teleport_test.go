@@ -50,7 +50,7 @@ print("test")`,
 				verbose:     false,
 			}
 
-			result := b.replaceModuleCalls(tt.content)
+			result := b.rewriteModuleCalls(tt.content, "/tmp/test.lua")
 
 			// Check if HttpGet pattern was replaced with loadModule
 			containsLoadModule := strings.Contains(result, `loadModule("https://example.com/`)
@@ -106,9 +106,9 @@ func TestQueueOnTeleportVariations(t *testing.T) {
 				verbose:     false,
 			}
 
-			got := b.replaceModuleCalls(tt.input)
+			got := b.rewriteModuleCalls(tt.input, "/tmp/test.lua")
 			if got != tt.want {
-				t.Errorf("replaceModuleCalls() got = %v, want %v", got, tt.want)
+				t.Errorf("rewriteModuleCalls() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
